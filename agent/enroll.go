@@ -10,8 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
+
+// enroll 을 직렬화한다 — 동시 콜홈(더블클릭 등)이 키페어를 두 번 생성해 서버에 등록한 공개키와
+// wg0.conf 에 쓰인 개인키가 어긋나(핸드셰이크 불가) 나는 레이스를 막는다.
+var enrollMu sync.Mutex
 
 // enroll: 박스가 ClawOps 에 셀프 온보딩하는 콜홈 흐름.
 //
@@ -72,6 +77,15 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "api_base 가 필요합니다(콘솔에서 안내된 주소)")
 		return
 	}
+	// enroll 토큰(Bearer)을 평문 HTTP 로 흘리지 않도록 https 강제.
+	if !strings.HasPrefix(apiBase, "https://") {
+		writeErr(w, http.StatusBadRequest, "api_base 는 https:// 여야 합니다")
+		return
+	}
+
+	// 동시 enroll 직렬화(키페어 레이스 방지).
+	enrollMu.Lock()
+	defer enrollMu.Unlock()
 
 	// ① WG 키페어(개인키는 로컬에만).
 	pubkey, err := s.sys.ensureWGKeypair()
@@ -108,8 +122,9 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 	}
 	rendered, cfgErr := s.cfg.Save(p)
 
+	enrolled := upOK && cfgErr == nil
 	out := map[string]any{
-		"ok":        upOK,
+		"ok":        enrolled,
 		"tunnel_ip": resp.TunnelIP,
 		"wg_up":     upOK,
 		"wg_output": upOut,
@@ -119,7 +134,12 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 	if cfgErr != nil {
 		out["config_error"] = cfgErr.Error()
 	}
-	writeJSON(w, http.StatusOK, out)
+	// 부분 실패(터널 미기동/템플릿 렌더 실패)를 200 으로 감추지 않는다 — 상태코드로도 신호.
+	respStatus := http.StatusOK
+	if !enrolled {
+		respStatus = http.StatusBadGateway
+	}
+	writeJSON(w, respStatus, out)
 }
 
 // callEnrollAPI 는 ClawOps enroll 엔드포인트를 호출한다.

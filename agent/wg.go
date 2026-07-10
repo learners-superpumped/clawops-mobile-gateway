@@ -26,7 +26,9 @@ func runStdin(input string, timeout time.Duration, name string, args ...string) 
 // 재enroll 시 같은 키를 재사용한다 — 개인키는 절대 파일 밖으로 안 나간다.
 func (s *System) ensureWGKeypair() (pubkey string, err error) {
 	priv, rerr := os.ReadFile(wgPrivKeyPath())
-	if rerr != nil {
+	// 파일 부재뿐 아니라 빈/공백 키(중단된 WriteFile·operator touch)도 재생성해 복구한다 —
+	// 안 그러면 0바이트 box.key 가 `wg pubkey` 빈 stdin 실패로 enroll 을 영구 브릭시킨다.
+	if rerr != nil || len(strings.TrimSpace(string(priv))) == 0 {
 		gen, ok := run(5*time.Second, "wg", "genkey")
 		if !ok || gen == "" {
 			return "", fmt.Errorf("wg genkey 실패: %s", gen)
