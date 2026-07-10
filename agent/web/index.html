@@ -43,10 +43,26 @@
       </div>
     </section>
 
+    <!-- ClawOps 연결 (enroll) -->
+    <section class="panel">
+      <div class="panel-h"><h2>1 · ClawOps 연결</h2><span id="enroll-badge" class="pill pill-muted">미연결</span></div>
+      <p class="hint">콘솔에서 발급받은 <b>등록 토큰</b>을 붙여넣고 연결하세요. 박스가 WireGuard 키를 자동 생성해
+        ClawOps 에 등록하고 터널을 올립니다. (개인키는 이 박스 밖으로 나가지 않습니다)</p>
+      <form id="enroll-form" class="form">
+        <label>등록 토큰<input name="enroll_token" placeholder="콘솔에서 발급" autocomplete="off" /></label>
+        <label>서버 주소<input name="api_base" placeholder="콘솔에서 안내된 주소 (예: https://…)" /></label>
+        <label>내 휴대폰 번호<input name="msisdn" placeholder="010… (선택, caller-id)" /></label>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">연결</button>
+          <span id="enroll-msg" class="msg"></span>
+        </div>
+      </form>
+    </section>
+
     <!-- 블루투스 페어링 -->
     <section class="panel">
       <div class="panel-h">
-        <h2>1 · 블루투스 페어링</h2>
+        <h2>2 · 블루투스 페어링</h2>
         <button class="btn" id="btn-scan">스캔</button>
       </div>
       <p class="hint">휴대폰을 페어링 모드로 두고 스캔 → 페어링. (연결은 asterisk가 잡습니다)</p>
@@ -55,7 +71,7 @@
 
     <!-- 프로비저닝 -->
     <section class="panel">
-      <div class="panel-h"><h2>2 · 프로비저닝</h2><span id="prov-badge" class="pill pill-muted">—</span></div>
+      <div class="panel-h"><h2>3 · 프로비저닝</h2><span id="prov-badge" class="pill pill-muted">—</span></div>
       <p class="hint">값을 채우면 설정 템플릿(.tmpl)이 실제 .conf 로 렌더됩니다.</p>
       <form id="prov-form" class="form">
         <label>어댑터 MAC<input name="adapter_mac" placeholder="34:6F:24:..." /></label>
@@ -73,7 +89,7 @@
 
     <!-- 서비스 제어 -->
     <section class="panel">
-      <div class="panel-h"><h2>3 · 서비스</h2></div>
+      <div class="panel-h"><h2>4 · 서비스</h2></div>
       <div class="btn-row">
         <button class="btn btn-primary" data-svc="start">시작</button>
         <button class="btn" data-svc="restart">재시작</button>

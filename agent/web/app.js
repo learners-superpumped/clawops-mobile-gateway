@@ -37,6 +37,12 @@ async function refreshStatus() {
   setDot("#c-tunnel", body.tunnel.up ? "ok" : "bad");
   setCard("#c-tunnel", body.tunnel.up ? "연결" : "끊김", body.tunnel.interface);
 
+  // enroll 배지 (터널 연결 = ClawOps 연결됨)
+  const eb = $("#enroll-badge");
+  if (body.tunnel.up) { eb.className = "pill pill-ok"; eb.textContent = "연결됨"; }
+  else if (body.config.provisioning && body.config.provisioning.tunnel_ip) { eb.className = "pill pill-warn"; eb.textContent = "터널 대기"; }
+  else { eb.className = "pill pill-muted"; eb.textContent = "미연결"; }
+
   // chan_mobile
   const cm = body.chan_mobile;
   setDot("#c-mobile", cm.running ? "ok" : cm.loaded ? "warn" : "bad");
@@ -54,6 +60,33 @@ async function refreshStatus() {
   else { badge.className = "pill pill-warn"; badge.textContent = `미완: ${body.config.missing.join(", ")}`; }
   if (!formDirty) fillForm(body.config.provisioning);
 }
+
+// ── ClawOps 연결 (enroll) ─────────────────────────────────
+$("#enroll-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const token = (fd.get("enroll_token") || "").trim();
+  const msg = $("#enroll-msg");
+  if (!token) { msg.textContent = "✗ 등록 토큰을 입력하세요"; return; }
+  const btn = e.target.querySelector('button[type="submit"]');
+  btn.disabled = true; msg.textContent = "연결 중…";
+  const { ok, body } = await api("/api/enroll", {
+    method: "POST",
+    body: JSON.stringify({
+      enroll_token: token,
+      api_base: (fd.get("api_base") || "").trim(),
+      msisdn: (fd.get("msisdn") || "").trim(),
+    }),
+  });
+  btn.disabled = false;
+  if (ok && body.wg_up) {
+    msg.textContent = `✓ 연결됨 · 터널 IP ${body.tunnel_ip}`;
+    e.target.querySelector('[name="enroll_token"]').value = ""; // 1회용 토큰 지움
+  } else {
+    msg.textContent = "✗ " + (body.error || body.wg_output || "연결 실패");
+  }
+  refreshStatus();
+});
 
 // ── 프로비저닝 폼 ─────────────────────────────────────────
 let formDirty = false;

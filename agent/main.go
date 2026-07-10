@@ -39,6 +39,7 @@ func main() {
 	mux.HandleFunc("POST /api/bluetooth/pair", srv.handleBTPair)
 	mux.HandleFunc("GET /api/config", srv.handleConfigGet)
 	mux.HandleFunc("POST /api/config", srv.handleConfigSave)
+	mux.HandleFunc("POST /api/enroll", srv.handleEnroll)
 	mux.HandleFunc("POST /api/service", srv.handleService)
 	mux.HandleFunc("GET /api/logs", srv.handleLogs)
 	// Web UI (SPA) — 그 외 전부 index.html/정적자원
