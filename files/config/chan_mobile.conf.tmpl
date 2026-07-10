@@ -1,0 +1,19 @@
+; ClawOps Mobile Gateway — chan_mobile 템플릿
+; {{...}} 는 프로비저닝(control-agent 또는 수동) 시 실제 값으로 치환.
+;   ADAPTER_MAC : 로컬 hci0 BD 주소  (hciconfig hci0 로 확인)
+;   PHONE_MAC   : 페어링한 휴대폰 MAC (bluetoothctl devices 로 확인)
+;   HFP_PORT    : 휴대폰 HFP RFCOMM 채널 (sdptool search --bdaddr <MAC> HF)
+
+[general]
+interval=30
+
+[adapter]
+id=blue
+address={{ADAPTER_MAC}}
+
+[phone]
+address={{PHONE_MAC}}
+port={{HFP_PORT}}
+context=mobile-in
+adapter=blue
+group=0

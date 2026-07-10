@@ -1,0 +1,13 @@
+Package: clawops-mobile-gateway
+Version: @VERSION@
+Architecture: @ARCH@
+Maintainer: ClawOps <support@claw-ops.com>
+Section: comm
+Priority: optional
+Depends: libc6, libssl3, libxml2, libjansson4, libsqlite3-0, libedit2, libncursesw6, libcurl4, libsrtp2-1, libuuid1, libbluetooth3, bluez, wireguard-tools
+Description: ClawOps Mobile Gateway (Asterisk + chan_mobile)
+ 블루투스(HFP)로 페어링한 휴대폰의 셀룰러 회선을 ClawOps SIP 로 브릿지하는
+ 게이트웨이. Asterisk 22.10.x + chan_mobile 를 /opt/clawops-gw 에 vendored 설치하고,
+ WireGuard 터널로 ClawOps 미디어/시그널 평면에 IP 신뢰로 접속한다.
+ .
+ 설치 후 휴대폰 BT 페어링 + 터널 프로비저닝이 끝나야 서비스가 기동된다.

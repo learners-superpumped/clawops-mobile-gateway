@@ -1,0 +1,33 @@
+; ClawOps Mobile Gateway — pjsip 템플릿 (WireGuard IP-신뢰 트렁크)
+; {{...}} 프로비저닝 치환:
+;   TUNNEL_IP   : 이 박스에 할당된 WireGuard 터널 IP (예 10.9.0.x)
+;   KAMAILIO_IP : ClawOps kamailio 도달 IP (터널 peer 관점, 프로비저닝 시 발급)
+;
+; 크레덴셜/등록 없음 — kamailio 가 소스 터널 IP 를 KCT 처럼 신뢰.
+
+[transport-wg]
+type=transport
+protocol=udp
+bind={{TUNNEL_IP}}:5060
+
+[clawops-trunk]
+type=endpoint
+context=from-clawops
+transport=transport-wg
+disallow=all
+allow=ulaw,alaw
+direct_media=no
+rtp_symmetric=yes
+force_rport=yes
+rewrite_contact=yes
+aors=clawops-aor
+
+[clawops-aor]
+type=aor
+contact=sip:{{KAMAILIO_IP}}:5060
+qualify_frequency=30
+
+[clawops-identify]
+type=identify
+endpoint=clawops-trunk
+match={{KAMAILIO_IP}}

@@ -1,0 +1,14 @@
+# 빌드 산출물
+dist/
+*.deb
+
+# OS / 에디터
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# 로컬 실험용 임시
+_x/
+_c/
+tmp/

@@ -1,0 +1,18 @@
+; ClawOps Mobile Gateway — dialplan 템플릿
+; {{MY_DID}} : 이 휴대폰 셀룰러 번호(ClawOps 에 DID 로 등록된 값)
+
+[mobile-in]
+; 셀룰러 착신: chan_mobile → ClawOps 트렁크(To=내 DID)로 흘림.
+exten => s,1,NoOp(ClawOps mobile-in caller=${CALLERID(num)})
+ same => n,Dial(PJSIP/{{MY_DID}}@clawops-trunk)
+ same => n,Hangup()
+
+[mobile-out]
+; ClawOps → 셀룰러 발신: kamailio 가 이 컨텍스트로 라우팅.
+exten => _X.,1,NoOp(ClawOps mobile-out to=${EXTEN})
+ same => n,Dial(Mobile/phone/${EXTEN})
+ same => n,Hangup()
+
+[from-clawops]
+; ClawOps 트렁크(WG)에서 들어온 발신 요청 → 셀룰러로.
+exten => _X.,1,Goto(mobile-out,${EXTEN},1)

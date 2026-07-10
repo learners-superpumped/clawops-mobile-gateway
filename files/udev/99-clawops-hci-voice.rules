@@ -1,0 +1,6 @@
+# HCI 어댑터 등록 시 voice=0x0060 강제(재부팅 영구화 보조).
+#  주 경로는 clawops-asterisk.service 의 ExecStartPre(clawops-bt-prep.sh) 이며,
+#  이 규칙은 어댑터가 서비스보다 늦게 붙는 경우를 위한 보조 트리거.
+#  ⚠️ udev RUN 은 장기 실행 금지(타임아웃 시 kill) → bt-prep.sh(30초 poll) 대신
+#     방금 등록된 그 장치(%k)에 voice 를 직접 1회 설정한다(대기 불필요, 이미 존재).
+ACTION=="add", SUBSYSTEM=="bluetooth", KERNEL=="hci[0-9]*", RUN+="/usr/bin/hciconfig %k voice 0x0060"

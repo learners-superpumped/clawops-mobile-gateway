@@ -1,0 +1,11 @@
+#!/bin/sh
+# ClawOps Mobile Gateway — prerm
+set -e
+
+case "$1" in
+  remove|deconfigure)
+    systemctl stop clawops-asterisk.service    || true
+    systemctl disable clawops-asterisk.service || true
+    ;;
+esac
+exit 0

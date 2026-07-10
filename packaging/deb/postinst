@@ -1,0 +1,34 @@
+#!/bin/sh
+# ClawOps Mobile Gateway — postinst
+set -e
+
+case "$1" in
+  configure)
+    systemctl daemon-reload || true
+    udevadm control --reload-rules || true
+
+    # 런타임 디렉토리는 만들지 않는다 — vendored 빌드가 --localstatedir=/var/lib/clawops-gw 로
+    # 컴파일돼 실제 log/run/spool 은 /var/lib/clawops-gw/*/asterisk 이며 패키지에 이미 포함.
+    # (stock /var/log/asterisk 등은 asterisk 가 쓰지 않는 죽은 경로였음)
+
+    # 부팅 자동기동은 등록하되 '지금' start 하지 않는다:
+    #  아직 BT 페어링/터널 프로비저닝 전이라 config(chan_mobile/pjsip)가 미완성.
+    #  control-agent(또는 수동 프로비저닝)가 config 를 채운 뒤 start 한다.
+    systemctl enable clawops-asterisk.service || true
+
+    cat <<'EOF'
+──────────────────────────────────────────────────────────
+ ClawOps Mobile Gateway 설치 완료.
+ 남은 단계(프로비저닝):
+   1) 휴대폰을 블루투스로 페어링 (bluetoothctl: scan→pair→trust)
+   2) /etc/clawops-gw/asterisk/*.tmpl → 값 채운 뒤 .tmpl 을 떼고 .conf 로 저장
+      (예: chan_mobile.conf.tmpl → chan_mobile.conf. asterisk 는 .conf 만 읽음)
+      (adapter MAC · phone MAC · HFP port · 터널 IP · kamailio IP · 내 DID)
+   3) WireGuard 터널 기동 (wg-quick@wg0)
+   4) systemctl start clawops-asterisk
+ 상태 확인: systemctl status clawops-asterisk
+──────────────────────────────────────────────────────────
+EOF
+    ;;
+esac
+exit 0

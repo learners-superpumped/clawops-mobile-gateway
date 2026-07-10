@@ -1,0 +1,26 @@
+[Unit]
+Description=ClawOps Mobile Gateway (Asterisk + chan_mobile)
+Documentation=https://platform.claw-ops.com/docs/
+# HCI 접근 + 터널 bind 순서 보장: 블루투스와 wg0 뒤에 기동.
+#  (transport-wg 가 터널 IP 에 bind 하므로 wg0 가 먼저 떠 있어야 bind 성공)
+#  ⚠️ bluetooth 는 Requires 가 아니라 Wants — Requires 면 bluetooth.service 가
+#     failed(동글 미장착/삐끗) 일 때 asterisk 를 강제 tear-down 해 게이트웨이 전체가 죽는다.
+#     Wants 면 chan_mobile 만 declined 되고 나머지(pjsip 트렁크 등)는 정상 상주.
+Wants=bluetooth.service network-online.target wg-quick@wg0.service
+After=bluetooth.service network-online.target wg-quick@wg0.service
+
+[Service]
+Type=exec
+# chan_mobile 은 HCI 원시 접근이 필요 → root 로 기동.
+User=root
+# 어댑터 voice 0x0060 강제(재부팅/reset 시 초기화 → 매 기동 전 세팅).
+#  `-` 접두 = 비치명적: 어댑터 미준비/실패해도 asterisk 기동을 막지 않는다(위 Wants 와 동일 취지).
+ExecStartPre=-/usr/local/bin/clawops-bt-prep.sh
+# -C 미지정 → 컴파일된 astetcdir(/etc/clawops-gw/asterisk) 의 asterisk.conf 자동 사용.
+#  (sysconfdir 밑에 asterisk/ 를 붙이는 게 asterisk 표준. 하드코딩 경로 어긋남 방지.)
+ExecStart=/opt/clawops-gw/sbin/asterisk -f
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
