@@ -6,6 +6,8 @@ case "$1" in
   remove|deconfigure)
     systemctl stop clawops-asterisk.service    || true
     systemctl disable clawops-asterisk.service || true
+    systemctl stop clawops-agent.service       || true
+    systemctl disable clawops-agent.service    || true
     ;;
 esac
 exit 0

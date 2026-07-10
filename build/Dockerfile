@@ -82,6 +82,16 @@ RUN make -C third-party -j1 \
 RUN test -f "/stage${PREFIX}/lib/asterisk/modules/chan_mobile.so" \
     || (echo "!! chan_mobile.so 누락 — libbluetooth-dev/menuselect 확인" && exit 1)
 
+# ── Stage 1b: agent-builder (Go control-agent + embed Web UI) ────────────────
+#  BUILDPLATFORM 에서 네이티브로 돌려 GOARCH 로 크로스컴파일 → QEMU 에뮬 회피.
+#  CGO off = 배포판 무관 정적 단일 바이너리(Web UI 는 go:embed 로 내장).
+FROM --platform=$BUILDPLATFORM golang:1.23-bookworm AS agent-builder
+ARG TARGETARCH
+WORKDIR /src
+COPY agent/ ./
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+      go build -trimpath -ldflags="-s -w" -o /out/clawops-agent .
+
 # ── Stage 2: packager ────────────────────────────────────────────────────────
 FROM ${BUILD_BASE} AS packager
 ARG PREFIX
@@ -94,16 +104,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends dpkg-dev \
 
 # 1) vendored asterisk 산출물을 패키지 루트로.
 COPY --from=builder /stage /pkgroot
-# 2) 패키징 자산(systemd/udev/bin/config 템플릿) + DEBIAN 메타.
+# 2) 패키징 자산(systemd/udev/bin/config 템플릿) + DEBIAN 메타 + control-agent 바이너리.
 COPY packaging/deb/ /debian-meta/
 COPY files/ /files/
+COPY --from=agent-builder /out/clawops-agent /agent-bin/clawops-agent
 
 RUN set -eux; \
     install -d /pkgroot/lib/systemd/system /pkgroot/lib/udev/rules.d \
-              /pkgroot/usr/local/bin "/pkgroot${SYSCONFDIR}/asterisk" /pkgroot/DEBIAN /out; \
+              /pkgroot/usr/local/bin "/pkgroot${PREFIX}/bin" \
+              "/pkgroot${SYSCONFDIR}/asterisk" /pkgroot/DEBIAN /out; \
     cp /files/systemd/*.service /pkgroot/lib/systemd/system/; \
     cp /files/udev/*.rules      /pkgroot/lib/udev/rules.d/; \
     cp /files/bin/*.sh          /pkgroot/usr/local/bin/; chmod 0755 /pkgroot/usr/local/bin/*.sh; \
+    install -m0755 /agent-bin/clawops-agent "/pkgroot${PREFIX}/bin/clawops-agent"; \
     # 템플릿은 astetcdir(sysconfdir/asterisk) 에 둔다 — asterisk 가 실제로 읽는 위치.
     cp /files/config/*.tmpl     "/pkgroot${SYSCONFDIR}/asterisk/"; \
     sed -e "s/@VERSION@/${PKG_VERSION}/" -e "s/@ARCH@/${TARGETARCH}/" \

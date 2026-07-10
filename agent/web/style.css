@@ -1,0 +1,91 @@
+/* ClawOps Mobile Gateway — control-agent UI
+   self-contained, 라이트/다크 테마 대응. 시맨틱 토큰 기반. */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --border: #e5e7eb; --fg: #111827;
+  --muted: #6b7280; --primary: #2563eb; --primary-fg: #ffffff;
+  --ok: #16a34a; --warn: #d97706; --bad: #dc2626; --muted-dot: #9ca3af;
+  --radius: 14px; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 4px 12px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b0e14; --card: #12161f; --border: #232a37; --fg: #e6e9ef;
+    --muted: #8b93a3; --primary: #3b82f6; --primary-fg: #ffffff;
+    --ok: #22c55e; --warn: #f59e0b; --bad: #ef4444; --muted-dot: #4b5563;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.3);
+  }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+}
+main { max-width: 920px; margin: 0 auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; }
+
+/* 상단바 */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px; background: var(--card); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 5;
+}
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo { font-size: 26px; }
+.topbar h1 { margin: 0; font-size: 17px; font-weight: 700; }
+.sub { margin: 0; font-size: 12px; color: var(--muted); }
+
+/* 상태 카드 그리드 */
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow);
+}
+.card-h { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.card-v { font-size: 20px; font-weight: 700; margin-top: 8px; }
+.card-s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted-dot); }
+.dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
+
+/* 패널 */
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
+.panel-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.panel-h h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.hint { margin: 4px 0 14px; font-size: 13px; color: var(--muted); }
+
+/* 버튼 */
+.btn {
+  appearance: none; border: 1px solid var(--border); background: var(--card); color: var(--fg);
+  padding: 8px 14px; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.btn:hover { border-color: var(--primary); }
+.btn:disabled { opacity: .5; cursor: default; }
+.btn-primary { background: var(--primary); color: var(--primary-fg); border-color: var(--primary); }
+.btn-danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
+.btn-row, .form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* 리스트(BT 장치) */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.list-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; }
+.list-item .mac { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); }
+.empty { color: var(--muted); font-size: 13px; padding: 10px 0; }
+
+/* 폼 */
+.form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.form input {
+  padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px;
+  background: var(--bg); color: var(--fg); font-size: 14px;
+}
+.form input:focus { outline: 2px solid color-mix(in srgb, var(--primary) 40%, transparent); border-color: var(--primary); }
+.form-actions { grid-column: 1 / -1; }
+
+/* pill / msg */
+.pill { padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.pill-ok { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+.pill-warn { background: color-mix(in srgb, var(--warn) 15%, transparent); color: var(--warn); }
+.pill-bad { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
+.pill-muted { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
+.msg { font-size: 13px; color: var(--muted); }
+
+/* 로그 */
+.logs { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px; font-family: ui-monospace, monospace; font-size: 12px; line-height: 1.5; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+
+.foot { text-align: center; color: var(--muted); font-size: 12px; padding: 24px; }

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ClawOps Mobile Gateway</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">📶</span>
+      <div>
+        <h1>Mobile Gateway</h1>
+        <p class="sub">ClawOps · 블루투스 셀룰러 브릿지</p>
+      </div>
+    </div>
+    <div id="health" class="pill pill-muted">연결 중…</div>
+  </header>
+
+  <main>
+    <!-- 상태 카드 -->
+    <section class="grid" id="status-grid">
+      <div class="card" id="c-service">
+        <div class="card-h"><span>서비스</span><span class="dot" data-dot></span></div>
+        <div class="card-v" data-v>—</div>
+        <div class="card-s" data-s>asterisk</div>
+      </div>
+      <div class="card" id="c-bt">
+        <div class="card-h"><span>블루투스</span><span class="dot" data-dot></span></div>
+        <div class="card-v" data-v>—</div>
+        <div class="card-s" data-s>어댑터</div>
+      </div>
+      <div class="card" id="c-tunnel">
+        <div class="card-h"><span>WireGuard</span><span class="dot" data-dot></span></div>
+        <div class="card-v" data-v>—</div>
+        <div class="card-s" data-s>터널</div>
+      </div>
+      <div class="card" id="c-mobile">
+        <div class="card-h"><span>chan_mobile</span><span class="dot" data-dot></span></div>
+        <div class="card-v" data-v>—</div>
+        <div class="card-s" data-s>모듈</div>
+      </div>
+    </section>
+
+    <!-- 블루투스 페어링 -->
+    <section class="panel">
+      <div class="panel-h">
+        <h2>1 · 블루투스 페어링</h2>
+        <button class="btn" id="btn-scan">스캔</button>
+      </div>
+      <p class="hint">휴대폰을 페어링 모드로 두고 스캔 → 페어링. (연결은 asterisk가 잡습니다)</p>
+      <div id="bt-list" class="list"><div class="empty">스캔을 눌러 장치를 찾으세요.</div></div>
+    </section>
+
+    <!-- 프로비저닝 -->
+    <section class="panel">
+      <div class="panel-h"><h2>2 · 프로비저닝</h2><span id="prov-badge" class="pill pill-muted">—</span></div>
+      <p class="hint">값을 채우면 설정 템플릿(.tmpl)이 실제 .conf 로 렌더됩니다.</p>
+      <form id="prov-form" class="form">
+        <label>어댑터 MAC<input name="adapter_mac" placeholder="34:6F:24:..." /></label>
+        <label>휴대폰 MAC<input name="phone_mac" placeholder="60:57:C8:..." /></label>
+        <label>HFP 포트<input name="hfp_port" type="number" placeholder="8" /></label>
+        <label>터널 IP<input name="tunnel_ip" placeholder="10.x.x.x" /></label>
+        <label>Kamailio IP<input name="kamailio_ip" placeholder="프로비저닝 발급" /></label>
+        <label>내 DID<input name="did" placeholder="셀룰러 번호" /></label>
+        <div class="form-actions">
+          <button class="btn btn-primary" type="submit">저장 & 렌더</button>
+          <span id="prov-msg" class="msg"></span>
+        </div>
+      </form>
+    </section>
+
+    <!-- 서비스 제어 -->
+    <section class="panel">
+      <div class="panel-h"><h2>3 · 서비스</h2></div>
+      <div class="btn-row">
+        <button class="btn btn-primary" data-svc="start">시작</button>
+        <button class="btn" data-svc="restart">재시작</button>
+        <button class="btn btn-danger" data-svc="stop">중지</button>
+        <span id="svc-msg" class="msg"></span>
+      </div>
+    </section>
+
+    <!-- 로그 -->
+    <section class="panel">
+      <div class="panel-h"><h2>로그</h2><button class="btn" id="btn-logs">새로고침</button></div>
+      <pre id="logs" class="logs">—</pre>
+    </section>
+  </main>
+
+  <footer class="foot">ClawOps Mobile Gateway · control-agent</footer>
+  <script src="/app.js"></script>
+</body>
+</html>

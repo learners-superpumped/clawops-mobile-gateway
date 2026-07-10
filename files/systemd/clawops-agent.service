@@ -1,0 +1,16 @@
+[Unit]
+Description=ClawOps Mobile Gateway control-agent (로컬 Web UI + 프로비저닝 API)
+Documentation=https://platform.claw-ops.com/docs/
+After=network.target
+
+[Service]
+Type=exec
+# systemctl/bluetoothctl/hciconfig/wg 를 호출하므로 root 로 기동.
+User=root
+Environment=CLAWOPS_AGENT_ADDR=:8088
+ExecStart=/opt/clawops-gw/bin/clawops-agent
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

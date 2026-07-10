@@ -12,3 +12,7 @@ dist/
 _x/
 _c/
 tmp/
+
+# Go 로컬 빌드 산출물
+agent/clawops-agent
+agent/agent
