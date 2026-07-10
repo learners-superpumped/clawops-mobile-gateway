@@ -126,11 +126,13 @@ $$("[data-svc]").forEach((btn) =>
   })
 );
 
-// ── 로그 ──────────────────────────────────────────────────
+// ── 로그 (5초 자동 갱신 · 최신이 상단) ────────────────────
 $("#btn-logs").addEventListener("click", refreshLogs);
 async function refreshLogs() {
-  const { body } = await api("/api/logs?n=120");
-  $("#logs").textContent = body.logs || "(로그 없음)";
+  const { body } = await api("/api/logs?n=150");
+  const lines = (body.logs || "").split("\n").filter(Boolean);
+  // journalctl 은 오래된→최신 순 → 뒤집어 최신을 맨 위로.
+  $("#logs").textContent = lines.length ? lines.reverse().join("\n") : "(로그 없음)";
 }
 
 function escapeHtml(s) { return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
@@ -139,3 +141,4 @@ function escapeHtml(s) { return (s || "").replace(/[&<>"']/g, (c) => ({ "&": "&a
 refreshStatus();
 refreshLogs();
 setInterval(refreshStatus, 4000);
+setInterval(refreshLogs, 5000); // 로그 자동 갱신(최신 상단)
