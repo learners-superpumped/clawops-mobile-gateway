@@ -28,11 +28,14 @@
       <button class="step" type="button" data-step-target="bluetooth-panel">
         <span class="step-number">2</span><span><b>블루투스 페어링</b><small>휴대폰 HFP 연결</small></span>
       </button>
+      <button class="step" type="button" data-step-target="verify-panel">
+        <span class="step-number">3</span><span><b>번호 검증</b><small>발신 번호 확인</small></span>
+      </button>
       <button class="step" type="button" data-step-target="config-panel">
-        <span class="step-number">3</span><span><b>장치 설정</b><small>통화 회선 구성</small></span>
+        <span class="step-number">4</span><span><b>장치 설정</b><small>통화 회선 구성</small></span>
       </button>
       <button class="step" type="button" data-step-target="service-panel">
-        <span class="step-number">4</span><span><b>서비스 시작</b><small>게이트웨이 운영</small></span>
+        <span class="step-number">5</span><span><b>서비스 시작</b><small>게이트웨이 운영</small></span>
       </button>
     </nav>
 
@@ -82,11 +85,31 @@
           <div id="bt-list" class="device-list"><div class="empty"><b>아직 검색하지 않았습니다</b><span>장치 검색을 누르면 주변 휴대폰이 여기에 표시됩니다.</span></div></div>
         </section>
 
-        <section class="stage" id="config-panel" hidden>
+        <section class="stage" id="verify-panel" hidden>
           <div class="stage-copy">
             <span class="eyebrow">3단계</span>
+            <h2>발신 번호를 검증합니다</h2>
+            <p>페어링한 휴대폰에서 아래 번호로 안내 코드를 문자로 보내면, 그 휴대폰의 실제 발신 번호가 이 게이트웨이의 회선으로 자동 등록됩니다. 이 검증을 통과해야 통화가 정상 동작합니다.</p>
+          </div>
+          <div id="verify-pending" class="verify-card" hidden>
+            <div class="verify-instruct">
+              <div class="verify-line"><span class="state-label">보낼 번호</span><b id="verify-receive">—</b></div>
+              <div class="verify-line"><span class="state-label">문자 내용</span><code id="verify-code" class="verify-code">—</code></div>
+              <p class="field-help">페어링한 그 휴대폰에서 위 번호로 위 코드를 문자(SMS)로 보내세요. 잠시 후 자동으로 확인됩니다.</p>
+            </div>
+            <div class="verify-status"><span class="dot" id="verify-dot"></span><span id="verify-status-text">검증 대기 중…</span></div>
+          </div>
+          <div id="verify-done" class="connected-state" hidden>
+            <div><span class="state-label">번호 검증 완료</span><b>발신 번호가 등록되었습니다</b><p>검증된 번호 <code id="verify-number">—</code></p></div>
+          </div>
+          <div id="verify-blocked" class="restart-required" hidden><b id="verify-blocked-title">검증을 완료할 수 없습니다</b><span id="verify-blocked-copy"></span></div>
+        </section>
+
+        <section class="stage" id="config-panel" hidden>
+          <div class="stage-copy">
+            <span class="eyebrow">4단계</span>
             <h2>통화 회선 정보를 확인합니다</h2>
-            <p>연결 과정에서 채워진 값을 확인하세요. 자동으로 입력되지 않은 항목만 직접 입력하면 됩니다.</p>
+            <p>연결·검증 과정에서 채워진 값을 확인하세요. 자동으로 입력되지 않은 항목만 직접 입력하면 됩니다.</p>
           </div>
           <div class="stage-toolbar config-toolbar"><span id="config-mode-copy">자동 입력된 값을 확인하고 저장하세요.</span><button class="btn" id="btn-edit-config" type="button" hidden>설정 수정</button></div>
           <form id="prov-form" class="form form-config">
@@ -96,7 +119,7 @@
               <label>HFP 포트<input name="hfp_port" type="number" placeholder="8" /></label>
               <label>터널 IP<input name="tunnel_ip" placeholder="ClawOps 연결 시 자동 입력" /></label>
               <label>Kamailio IP<input name="kamailio_ip" placeholder="ClawOps 연결 시 자동 입력" /></label>
-              <label>내 DID<input name="did" placeholder="셀룰러 회선 번호" /></label>
+              <label>내 DID <span class="optional">검증 자동</span><input name="did" placeholder="번호 검증 시 자동 입력" readonly /></label>
             </div>
             <div class="form-actions">
               <button class="btn btn-primary" id="btn-save-config" type="submit">설정 저장</button>
@@ -108,7 +131,7 @@
 
         <section class="stage" id="service-panel" hidden>
           <div class="stage-copy">
-            <span class="eyebrow">4단계</span>
+            <span class="eyebrow">5단계</span>
             <h2>Mobile Gateway를 시작합니다</h2>
             <p>연결과 장치 설정이 완료되었습니다. 서비스를 시작하면 휴대폰의 셀룰러 회선을 ClawOps에서 사용할 수 있습니다.</p>
           </div>

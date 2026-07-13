@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -54,6 +55,12 @@ type enrollResponse struct {
 	WGGwEndpoint string `json:"wgGwEndpoint"`
 	WGGwPubkey   string `json:"wgGwPubkey"`
 	Keepalive    int    `json:"keepalive"`
+	// 번호 소유 검증 안내(Phase 4). 박스는 nonce 를 사용자에게 보여주고, 사용자가 페어링된 폰으로
+	// receiveNumber 에 이 코드를 문자로 보내면 서버가 발신 CLI 를 검증 번호로 확정한다.
+	Verification struct {
+		Nonce         string `json:"nonce"`
+		ReceiveNumber string `json:"receiveNumber"`
+	} `json:"verification"`
 }
 
 // ── /api/enroll ──────────────────────────────────────────────────
@@ -113,14 +120,22 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 	}
 	upOut, upOK := s.sys.wgUp()
 
-	// 터널/DID 값을 프로비저닝에 병합(asterisk 템플릿 렌더). BT 페어링 값은 그대로 둔다.
+	// 터널 값을 프로비저닝에 병합(asterisk 템플릿 렌더). BT 페어링 값은 그대로 둔다.
+	// DID 는 여기서 채우지 않는다 — 번호 소유 검증(Phase 4) 통과 시 서버가 확정한 번호로만 주입한다
+	// (msisdn 은 관측/표시용이라 신뢰 X). 검증 전엔 did 미설정 = provisioned=false = 서비스 시작 잠금.
 	p := s.cfg.Load()
 	p.TunnelIP = resp.TunnelIP
 	p.KamailioIP = resp.KamailioIP
-	if req.MSISDN != "" {
-		p.DID = req.MSISDN
-	}
 	rendered, cfgErr := s.cfg.Save(p)
+
+	// 검증 세션 저장(재로드 후에도 안내·폴링 유지). 이전 게이트웨이의 검증 캐시는 새 nonce 로 리셋.
+	if resp.Verification.Nonce != "" {
+		_ = s.cfg.SaveVerification(VerificationState{
+			Nonce:         resp.Verification.Nonce,
+			ReceiveNumber: resp.Verification.ReceiveNumber,
+			APIBase:       apiBase,
+		})
+	}
 
 	enrolled := upOK && cfgErr == nil
 	out := map[string]any{
@@ -130,6 +145,10 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 		"wg_output": upOut,
 		"rendered":  rendered,
 		"pubkey":    pubkey,
+		"verification": map[string]string{
+			"nonce":          resp.Verification.Nonce,
+			"receive_number": resp.Verification.ReceiveNumber,
+		},
 	}
 	if cfgErr != nil {
 		out["config_error"] = cfgErr.Error()
@@ -140,6 +159,40 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 		respStatus = http.StatusBadGateway
 	}
 	writeJSON(w, respStatus, out)
+}
+
+// verificationStatusResp 는 ClawOps 검증상태 폴링 응답(GET /v1/mobile-gateways/verification/status).
+type verificationStatusResp struct {
+	Status         string `json:"status"` // pending | verified | expired | quota_exceeded
+	VerifiedNumber string `json:"verifiedNumber"`
+	ReceiveNumber  string `json:"receiveNumber"`
+	ExpiresAt      string `json:"expiresAt"`
+}
+
+// pollVerificationStatus 는 nonce 로 검증 세션 상태를 조회한다. 404 는 세션 없음(만료/무효)으로
+// err 아니라 status 로 전달. nonce 는 시크릿이라 이 조회 자체가 인증.
+func pollVerificationStatus(apiBase, nonce string) (verificationStatusResp, int, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	u := apiBase + "/v1/mobile-gateways/verification/status?nonce=" + url.QueryEscape(nonce)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return verificationStatusResp{}, 0, err
+	}
+	hr, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return verificationStatusResp{}, 0, err
+	}
+	defer hr.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(hr.Body, 1<<20))
+	if hr.StatusCode != http.StatusOK {
+		return verificationStatusResp{}, hr.StatusCode, nil
+	}
+	var vs verificationStatusResp
+	if err := json.Unmarshal(raw, &vs); err != nil {
+		return verificationStatusResp{}, hr.StatusCode, fmt.Errorf("검증상태 파싱 실패: %w", err)
+	}
+	return vs, hr.StatusCode, nil
 }
 
 // callEnrollAPI 는 ClawOps enroll 엔드포인트를 호출한다.

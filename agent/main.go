@@ -40,6 +40,7 @@ func main() {
 	mux.HandleFunc("GET /api/config", srv.handleConfigGet)
 	mux.HandleFunc("POST /api/config", srv.handleConfigSave)
 	mux.HandleFunc("POST /api/enroll", srv.handleEnroll)
+	mux.HandleFunc("GET /api/verification", srv.handleVerification)
 	mux.HandleFunc("POST /api/service", srv.handleService)
 	mux.HandleFunc("GET /api/logs", srv.handleLogs)
 	// Web UI (SPA) — 그 외 전부 index.html/정적자원
@@ -68,7 +69,7 @@ func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		next.ServeHTTP(w, r)
-		if r.URL.Path != "/api/status" { // status 폴링은 로그 소음이라 제외
+		if r.URL.Path != "/api/status" && r.URL.Path != "/api/verification" { // 폴링은 로그 소음이라 제외
 			log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start).Round(time.Millisecond))
 		}
 	})

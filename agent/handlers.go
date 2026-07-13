@@ -23,8 +23,8 @@ type StatusResponse struct {
 
 type ConfigState struct {
 	Provisioning Provisioning `json:"provisioning"`
-	Missing      []string     `json:"missing"`      // 아직 안 채운 필드
-	Provisioned  bool         `json:"provisioned"`  // 전부 채워짐?
+	Missing      []string     `json:"missing"`     // 아직 안 채운 필드
+	Provisioned  bool         `json:"provisioned"` // 전부 채워짐?
 }
 
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
@@ -41,6 +41,57 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 			Provisioned:  len(missing) == 0,
 		},
 	})
+}
+
+// ── /api/verification (Phase 4) ──────────────────────────────────
+// 저장된 nonce 로 ClawOps 검증 상태를 폴링해 UI 에 노출한다. verified 확인 시 검증 번호를 DID 로
+// 1회 자동 주입하고 템플릿을 렌더 → 이후 서비스 시작 단계가 열린다(수동 DID 입력 제거).
+// state: none(enroll 전) | pending | verified | expired | quota_exceeded | gone(세션 없음).
+
+func (s *Server) handleVerification(w http.ResponseWriter, r *http.Request) {
+	v := s.cfg.LoadVerification()
+	if v.Nonce == "" {
+		writeJSON(w, http.StatusOK, map[string]any{"state": "none"})
+		return
+	}
+	base := map[string]any{"nonce": v.Nonce, "receive_number": v.ReceiveNumber}
+
+	// 이미 verified 로 확정·DID 주입까지 끝났으면 서버 폴링 없이 즉시 반환.
+	if v.VerifiedNumber != "" {
+		base["state"] = "verified"
+		base["verified_number"] = v.VerifiedNumber
+		writeJSON(w, http.StatusOK, base)
+		return
+	}
+
+	vs, code, err := pollVerificationStatus(v.APIBase, v.Nonce)
+	if err != nil {
+		// 일시적 폴링 실패는 pending 으로 표시(UI 폴링이 계속 재시도).
+		base["state"] = "pending"
+		base["poll_error"] = err.Error()
+		writeJSON(w, http.StatusOK, base)
+		return
+	}
+	if code == http.StatusNotFound {
+		base["state"] = "gone"
+		writeJSON(w, http.StatusOK, base)
+		return
+	}
+
+	// verified → 검증 번호를 DID 로 1회 주입 + 템플릿 렌더(이후 서비스 시작 가능).
+	if vs.Status == "verified" && vs.VerifiedNumber != "" {
+		p := s.cfg.Load()
+		p.DID = vs.VerifiedNumber
+		if _, err := s.cfg.Save(p); err == nil {
+			v.VerifiedNumber = vs.VerifiedNumber
+			_ = s.cfg.SaveVerification(v)
+		}
+	}
+
+	base["state"] = vs.Status
+	base["verified_number"] = vs.VerifiedNumber
+	base["expires_at"] = vs.ExpiresAt
+	writeJSON(w, http.StatusOK, base)
 }
 
 // ── /api/bluetooth ───────────────────────────────────────────────

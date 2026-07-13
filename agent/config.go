@@ -53,6 +53,15 @@ func (p Provisioning) missing() []string {
 	return m
 }
 
+// VerificationState 는 번호 소유 검증(Phase 4) 진행 상태다. enroll 응답의 nonce/receiveNumber 와
+// 폴링에 필요한 api_base 를 보관해, UI 재로드 후에도 "070 에 CODE 보내기" 안내와 상태 폴링을 잇는다.
+type VerificationState struct {
+	Nonce          string `json:"nonce"`
+	ReceiveNumber  string `json:"receive_number"`
+	APIBase        string `json:"api_base"`
+	VerifiedNumber string `json:"verified_number,omitempty"` // verified 확인 시 캐시(DID 1회 주입 가드).
+}
+
 // ConfigManager 는 프로비저닝 값을 저장/로드하고 템플릿을 렌더한다.
 type ConfigManager struct {
 	mu sync.Mutex
@@ -61,6 +70,9 @@ type ConfigManager struct {
 func NewConfigManager() *ConfigManager { return &ConfigManager{} }
 
 func (c *ConfigManager) statePath() string { return filepath.Join(stateDir, "state.json") }
+func (c *ConfigManager) verificationPath() string {
+	return filepath.Join(stateDir, "verification.json")
+}
 
 // Load 는 저장된 프로비저닝 값을 읽는다(없으면 빈 값).
 func (c *ConfigManager) Load() Provisioning {
@@ -88,6 +100,31 @@ func (c *ConfigManager) Save(p Provisioning) ([]string, error) {
 		return nil, err
 	}
 	return renderTemplates(sysconfDir, p.placeholders())
+}
+
+// LoadVerification 는 저장된 검증 상태를 읽는다(없으면 빈 값 = 아직 enroll 전).
+func (c *ConfigManager) LoadVerification() VerificationState {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	var v VerificationState
+	if b, err := os.ReadFile(c.verificationPath()); err == nil {
+		_ = json.Unmarshal(b, &v)
+	}
+	return v
+}
+
+// SaveVerification 는 검증 상태를 저장한다(nonce 는 시크릿 → 0600).
+func (c *ConfigManager) SaveVerification(v VerificationState) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if err := os.MkdirAll(stateDir, 0o755); err != nil {
+		return err
+	}
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(c.verificationPath(), b, 0o600)
 }
 
 // renderTemplates 는 dir 안의 모든 *.tmpl 을 치환 후 .tmpl 을 뗀 .conf 로 쓴다.

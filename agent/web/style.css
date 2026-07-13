@@ -80,6 +80,17 @@ main { max-width: 1400px; margin: 0 auto; padding: 34px 56px 56px; }
 .connected-state b { font-size: 16px; }
 .connected-state p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
 .connected-state code { color: var(--text); }
+
+/* 번호 검증(Phase 4) 카드 */
+.verify-card { max-width: 620px; padding: 22px 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); }
+.verify-card[hidden] { display: none; }
+.verify-instruct { display: flex; flex-direction: column; gap: 12px; }
+.verify-line { display: flex; align-items: baseline; gap: 14px; }
+.verify-line .state-label { flex: 0 0 84px; color: var(--muted); font-size: 11px; font-weight: 700; }
+.verify-line b { font-size: 18px; letter-spacing: .3px; }
+.verify-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: 2px; color: var(--accent); padding: 4px 10px; border: 1px dashed var(--accent); border-radius: 6px; background: #fff; }
+.verify-status { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.verify-status .dot { margin-top: 0; }
 .config-toolbar { min-height: 38px; margin-top: -18px; }
 .restart-required { max-width: 620px; margin-bottom: 22px; padding: 16px 18px; border-left: 3px solid var(--warn); background: #fff9eb; display: flex; flex-direction: column; }
 .restart-required[hidden] { display: none; }

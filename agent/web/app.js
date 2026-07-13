@@ -21,7 +21,8 @@ function setMessage(selector, text, state = "") {
 let currentStatus = null;
 let journeyInitialized = false;
 let activeStep = 0;
-let unlockedSteps = [true, false, false, false];
+let unlockedSteps = [true, false, false, false, false];
+let verified = false; // 번호 검증 통과 여부(state==='verified')
 let formDirty = false;
 let editingConfig = false;
 let reenrolling = false;
@@ -79,8 +80,9 @@ function updateJourney(body) {
   const paired = Boolean(body.bluetooth?.paired?.length);
   const provisioned = Boolean(body.config?.provisioned);
   const running = body.service?.active === "active" && body.chan_mobile?.running;
-  const completed = [enrolled, paired, provisioned, running];
-  unlockedSteps = [true, enrolled, enrolled && paired, enrolled && paired && provisioned];
+  // 번호 검증(3단계)은 페어링 이후, 설정 이전. 검증 통과해야 DID 가 확정돼 설정/서비스가 열린다.
+  const completed = [enrolled, paired, verified, provisioned, running];
+  unlockedSteps = [true, enrolled, enrolled && paired, enrolled && paired && verified, enrolled && paired && verified && provisioned];
 
   $$(".step").forEach((step, index) => {
     step.classList.toggle("is-complete", completed[index]);
@@ -90,9 +92,9 @@ function updateJourney(body) {
     else step.removeAttribute("title");
   });
 
-  const next = !enrolled ? 0 : !paired ? 1 : !provisioned ? 2 : 3;
-  const titles = ["ClawOps에 연결하세요", "휴대폰을 페어링하세요", "장치 설정을 확인하세요", running ? "게이트웨이가 동작 중입니다" : "서비스를 시작하세요"];
-  const copies = ["등록 토큰을 입력하면 다음 단계가 열립니다.", "휴대폰을 연결하면 장치 설정을 계속할 수 있습니다.", "회선 정보를 저장하면 서비스를 시작할 수 있습니다.", running ? "설정을 수정하려면 완료된 단계를 선택하세요." : "준비가 끝났습니다. 서비스를 시작하세요."];
+  const next = !enrolled ? 0 : !paired ? 1 : !verified ? 2 : !provisioned ? 3 : 4;
+  const titles = ["ClawOps에 연결하세요", "휴대폰을 페어링하세요", "발신 번호를 검증하세요", "장치 설정을 확인하세요", running ? "게이트웨이가 동작 중입니다" : "서비스를 시작하세요"];
+  const copies = ["등록 토큰을 입력하면 다음 단계가 열립니다.", "휴대폰을 연결하면 번호 검증을 진행합니다.", "페어링한 휴대폰에서 안내 문자를 보내면 번호가 확정됩니다.", "회선 정보를 저장하면 서비스를 시작할 수 있습니다.", running ? "설정을 수정하려면 완료된 단계를 선택하세요." : "준비가 끝났습니다. 서비스를 시작하세요."];
   $("#next-step-title").textContent = restartRequired ? "서비스를 재시작하세요" : titles[next];
   $("#next-step-copy").textContent = restartRequired ? "저장된 변경사항은 재시작 후 적용됩니다." : copies[next];
 
@@ -106,7 +108,7 @@ function updateJourney(body) {
   $("#enroll-form").hidden = enrolled && !reenrolling;
   $("#connected-tunnel-ip").textContent = body.config?.provisioning?.tunnel_ip || "연결 확인 중";
 
-  const canStart = enrolled && paired && provisioned;
+  const canStart = enrolled && paired && verified && provisioned;
   $('[data-svc="start"]').disabled = !canStart || body.service?.active === "active";
   $('[data-svc="restart"]').disabled = !canStart || body.service?.active !== "active";
   $('[data-svc="stop"]').disabled = body.service?.active !== "active";
@@ -154,6 +156,60 @@ async function refreshStatus() {
     replaceFormValues(savedProvisioning);
   }
   updateJourney(body);
+}
+
+// 번호 검증 상태 폴링 + 렌더. 상태 갱신(refreshStatus)과 분리된 독립 폴링 — 원격 ClawOps 폴링이
+// 느려도(최대 10초) 로컬 상태 UI 가 멈추지 않게 한다. enroll 이후·미검증일 때만 서버를 때리고,
+// verified 되면 폴링을 멈춘다(verify-done DOM 은 그대로 유지).
+async function refreshVerification() {
+  const enrolled = Boolean(currentStatus?.tunnel?.up || currentStatus?.config?.provisioning?.tunnel_ip);
+  if (!enrolled) {
+    verified = false;
+    renderVerification(null);
+    return;
+  }
+  if (verified) return; // 이미 통과 — 서버 폴링·재렌더 중단(DOM 유지).
+  const { ok, body } = await api("/api/verification");
+  if (!ok) return;
+  verified = body.state === "verified";
+  renderVerification(body);
+  if (currentStatus) updateJourney(currentStatus); // 새 verified 로 여정 재게이트
+}
+
+function renderVerification(info) {
+  const pending = $("#verify-pending");
+  const done = $("#verify-done");
+  const blocked = $("#verify-blocked");
+  if (!pending || !done || !blocked) return;
+  const state = info?.state || "none";
+
+  // 검증 완료
+  const isDone = state === "verified";
+  done.hidden = !isDone;
+  if (isDone) $("#verify-number").textContent = info.verified_number || "—";
+
+  // 차단(만료/quota) — 사유 노출
+  const isBlocked = state === "expired" || state === "quota_exceeded" || state === "gone";
+  blocked.hidden = !isBlocked;
+  if (isBlocked) {
+    const map = {
+      expired: ["검증 시간이 만료되었습니다", "1단계에서 새 토큰으로 재등록하면 새 검증 코드가 발급됩니다."],
+      gone: ["검증 세션을 찾을 수 없습니다", "1단계에서 새 토큰으로 재등록해 다시 시도하세요."],
+      quota_exceeded: ["플랜의 회선 한도를 초과했습니다", "ClawOps 콘솔에서 플랜을 상향하거나 회선 부가서비스를 추가한 뒤 다시 문자를 보내세요."],
+    };
+    $("#verify-blocked-title").textContent = map[state][0];
+    $("#verify-blocked-copy").textContent = map[state][1];
+  }
+
+  // 대기(안내 + 코드) — pending 이거나 초기 none(enroll 직후 아직 세션 로드 전) 제외
+  const showPending = state === "pending";
+  pending.hidden = !showPending;
+  if (showPending) {
+    $("#verify-receive").textContent = info.receive_number || "—";
+    $("#verify-code").textContent = info.nonce || "—";
+    setLevel("#verify-dot", "warn");
+    $("#verify-status-text").textContent = "문자 수신을 기다리는 중… (보낸 뒤 잠시 기다리세요)";
+  }
 }
 
 $("#btn-reenroll").addEventListener("click", () => {
@@ -211,7 +267,7 @@ $("#prov-form").addEventListener("submit", async (event) => {
   setConfigEditing(false);
   setMessage("#prov-msg", "설정을 저장했습니다.", "success");
   await refreshStatus();
-  showStep(3);
+  showStep(4);
 });
 
 $("#btn-scan").addEventListener("click", async (event) => {
@@ -293,3 +349,9 @@ refreshStatus();
 refreshLogs();
 setInterval(refreshStatus, 4000);
 setInterval(refreshLogs, 5000);
+// 검증 폴링 — 상태 폴링과 분리(느린 원격 폴링이 상태 UI 를 막지 않게) + 재진입 방지
+// (setInterval 은 이전 폴링을 안 기다려 느린 응답이 겹쳐 쌓임 → 이전 폴링 종료 후 4초 뒤 다음 폴링).
+(async function verificationLoop() {
+  await refreshVerification();
+  setTimeout(verificationLoop, 4000);
+})();
