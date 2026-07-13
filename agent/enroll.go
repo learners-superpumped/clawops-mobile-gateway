@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -170,15 +169,16 @@ type verificationStatusResp struct {
 }
 
 // pollVerificationStatus 는 nonce 로 검증 세션 상태를 조회한다. 404 는 세션 없음(만료/무효)으로
-// err 아니라 status 로 전달. nonce 는 시크릿이라 이 조회 자체가 인증.
+// err 아니라 status 로 전달. nonce 는 시크릿이라 이 조회 자체가 인증 — Authorization: Bearer 로 보낸다
+// (쿼리스트링 금지: URL 은 로그·프록시에 남아 nonce 유출 시 번호 하이재킹 벡터가 된다).
 func pollVerificationStatus(apiBase, nonce string) (verificationStatusResp, int, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	u := apiBase + "/v1/mobile-gateways/verification/status?nonce=" + url.QueryEscape(nonce)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiBase+"/v1/mobile-gateways/verification/status", nil)
 	if err != nil {
 		return verificationStatusResp{}, 0, err
 	}
+	req.Header.Set("Authorization", "Bearer "+nonce)
 	hr, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return verificationStatusResp{}, 0, err

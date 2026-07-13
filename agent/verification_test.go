@@ -6,17 +6,23 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
-// pollVerificationStatus: 200 정상 파싱 + 404 는 err 아니라 status 로 전달.
+// pollVerificationStatus: nonce 를 Authorization: Bearer 로 전송(쿼리스트링 금지) + 200 파싱 + 404 처리.
 func TestPollVerificationStatus(t *testing.T) {
 	var gotNonce string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/mobile-gateways/verification/status" {
 			t.Errorf("경로 = %s", r.URL.Path)
 		}
-		gotNonce = r.URL.Query().Get("nonce")
+		if r.URL.RawQuery != "" {
+			t.Errorf("nonce 가 쿼리스트링에 노출됨: %s", r.URL.RawQuery)
+		}
+		if b := r.Header.Get("Authorization"); strings.HasPrefix(b, "Bearer ") {
+			gotNonce = strings.TrimPrefix(b, "Bearer ")
+		}
 		if gotNonce == "CODE-GONE0000" {
 			w.WriteHeader(http.StatusNotFound)
 			return
