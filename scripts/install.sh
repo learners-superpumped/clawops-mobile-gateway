@@ -9,7 +9,7 @@
 set -e
 
 ARCH=$(dpkg --print-architecture)
-DEB=$(ls dist/${ARCH}/clawops-mobile-gateway_*_${ARCH}.deb 2>/dev/null | head -1)
+DEB=$(find "dist/${ARCH}" -maxdepth 1 -type f -name "clawops-mobile-gateway_*_${ARCH}.deb" -print 2>/dev/null | sort | head -n 1)
 
 if [ -z "$DEB" ]; then
   echo "!! dist/${ARCH}/ 에 $ARCH .deb 없음. 먼저 'make build-${ARCH}' 실행." >&2

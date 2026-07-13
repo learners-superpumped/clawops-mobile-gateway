@@ -3,112 +3,153 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="ClawOps Mobile Gateway의 연결, 블루투스 페어링, 통화 회선 설정과 서비스 상태를 관리합니다." />
   <title>ClawOps Mobile Gateway</title>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="logo">📶</span>
-      <div>
-        <h1>Mobile Gateway</h1>
-        <p class="sub">ClawOps · 블루투스 셀룰러 브릿지</p>
-      </div>
+      <h1>ClawOps Mobile Gateway</h1>
+      <span class="version">로컬 콘솔</span><span id="lifecycle-badge" class="lifecycle-badge">설정 중</span>
     </div>
-    <div id="health" class="pill pill-muted">연결 중…</div>
+    <div class="health-strip" aria-label="시스템 상태">
+      <div class="health-item"><span class="dot" id="system-dot"></span><span><b>시스템</b><small id="health">확인 중</small></span></div>
+      <div class="health-item"><span class="dot" id="bluetooth-dot"></span><span><b>블루투스</b><small id="bluetooth-health">확인 중</small></span></div>
+      <div class="health-item"><span class="dot" id="service-dot"></span><span><b>서비스</b><small id="service-health">확인 중</small></span></div>
+    </div>
   </header>
 
   <main>
-    <!-- 상태 카드 -->
-    <section class="grid" id="status-grid">
-      <div class="card" id="c-service">
-        <div class="card-h"><span>서비스</span><span class="dot" data-dot></span></div>
-        <div class="card-v" data-v>—</div>
-        <div class="card-s" data-s>asterisk</div>
-      </div>
-      <div class="card" id="c-bt">
-        <div class="card-h"><span>블루투스</span><span class="dot" data-dot></span></div>
-        <div class="card-v" data-v>—</div>
-        <div class="card-s" data-s>어댑터</div>
-      </div>
-      <div class="card" id="c-tunnel">
-        <div class="card-h"><span>WireGuard</span><span class="dot" data-dot></span></div>
-        <div class="card-v" data-v>—</div>
-        <div class="card-s" data-s>터널</div>
-      </div>
-      <div class="card" id="c-mobile">
-        <div class="card-h"><span>chan_mobile</span><span class="dot" data-dot></span></div>
-        <div class="card-v" data-v>—</div>
-        <div class="card-s" data-s>모듈</div>
-      </div>
-    </section>
+    <nav class="steps" aria-label="설정 진행 단계">
+      <button class="step is-active" type="button" data-step-target="enroll-panel">
+        <span class="step-number">1</span><span><b>ClawOps 연결</b><small>게이트웨이 등록</small></span>
+      </button>
+      <button class="step" type="button" data-step-target="bluetooth-panel">
+        <span class="step-number">2</span><span><b>블루투스 페어링</b><small>휴대폰 HFP 연결</small></span>
+      </button>
+      <button class="step" type="button" data-step-target="config-panel">
+        <span class="step-number">3</span><span><b>장치 설정</b><small>통화 회선 구성</small></span>
+      </button>
+      <button class="step" type="button" data-step-target="service-panel">
+        <span class="step-number">4</span><span><b>서비스 시작</b><small>게이트웨이 운영</small></span>
+      </button>
+    </nav>
 
-    <!-- ClawOps 연결 (enroll) -->
-    <section class="panel">
-      <div class="panel-h"><h2>1 · ClawOps 연결</h2><span id="enroll-badge" class="pill pill-muted">미연결</span></div>
-      <p class="hint">콘솔에서 발급받은 <b>등록 토큰</b>을 붙여넣고 연결하세요. 박스가 WireGuard 키를 자동 생성해
-        ClawOps 에 등록하고 터널을 올립니다. (개인키는 이 박스 밖으로 나가지 않습니다)</p>
-      <form id="enroll-form" class="form">
-        <label>등록 토큰<input name="enroll_token" placeholder="콘솔에서 발급" autocomplete="off" /></label>
-        <label>서버 주소<input name="api_base" placeholder="콘솔에서 안내된 주소 (예: https://…)" /></label>
-        <label>내 휴대폰 번호<input name="msisdn" placeholder="010… (선택, caller-id)" /></label>
-        <div class="form-actions">
-          <button class="btn btn-primary" type="submit">연결</button>
-          <span id="enroll-msg" class="msg"></span>
+    <div class="workspace">
+      <div class="canvas">
+        <div id="operation-banner" class="operation-banner" hidden>
+          <div><b>게이트웨이가 정상 동작 중입니다</b><span>설정을 변경하면 저장 후 서비스 재시작이 필요할 수 있습니다.</span></div>
+          <button class="btn" type="button" data-step-target="config-panel">설정 수정</button>
         </div>
-      </form>
-    </section>
-
-    <!-- 블루투스 페어링 -->
-    <section class="panel">
-      <div class="panel-h">
-        <h2>2 · 블루투스 페어링</h2>
-        <button class="btn" id="btn-scan">스캔</button>
-      </div>
-      <p class="hint">휴대폰을 페어링 모드로 두고 스캔 → 페어링. (연결은 asterisk가 잡습니다)</p>
-      <div id="bt-list" class="list"><div class="empty">스캔을 눌러 장치를 찾으세요.</div></div>
-    </section>
-
-    <!-- 프로비저닝 -->
-    <section class="panel">
-      <div class="panel-h"><h2>3 · 프로비저닝</h2><span id="prov-badge" class="pill pill-muted">—</span></div>
-      <p class="hint">값을 채우면 설정 템플릿(.tmpl)이 실제 .conf 로 렌더됩니다.</p>
-      <form id="prov-form" class="form">
-        <label>어댑터 MAC<input name="adapter_mac" placeholder="34:6F:24:..." /></label>
-        <label>휴대폰 MAC<input name="phone_mac" placeholder="60:57:C8:..." /></label>
-        <label>HFP 포트<input name="hfp_port" type="number" placeholder="8" /></label>
-        <label>터널 IP<input name="tunnel_ip" placeholder="10.x.x.x" /></label>
-        <label>Kamailio IP<input name="kamailio_ip" placeholder="프로비저닝 발급" /></label>
-        <label>내 DID<input name="did" placeholder="셀룰러 번호" /></label>
-        <div class="form-actions">
-          <button class="btn btn-primary" type="submit">저장 & 렌더</button>
-          <span id="prov-msg" class="msg"></span>
+        <div id="change-banner" class="change-banner" hidden role="status">
+          <span><b>저장하지 않은 변경사항이 있습니다</b> 이 화면을 벗어나기 전에 저장하세요.</span>
+          <button class="btn btn-small" id="discard-config" type="button">변경 취소</button>
         </div>
-      </form>
-    </section>
+        <section class="stage" id="enroll-panel">
+          <div class="stage-copy">
+            <span class="eyebrow">1단계</span>
+            <h2>ClawOps에 이 게이트웨이를 등록합니다</h2>
+            <p>ClawOps 콘솔에서 발급한 등록 토큰을 붙여넣으세요. 연결에 필요한 키와 터널 설정은 이 장치에서 안전하게 생성됩니다.</p>
+          </div>
+          <div id="enroll-connected" class="connected-state" hidden>
+            <div><span class="state-label">ClawOps 연결</span><b>이 게이트웨이는 등록되어 있습니다</b><p>터널 IP <code id="connected-tunnel-ip">—</code></p></div>
+            <button class="btn" id="btn-reenroll" type="button">새 토큰으로 재등록</button>
+          </div>
+          <form id="enroll-form" class="form form-primary">
+            <label>등록 토큰
+              <span class="field-help">ClawOps 콘솔 › 실험실 › Mobile Gateway에서 복사</span>
+              <input name="enroll_token" placeholder="등록 토큰을 붙여넣으세요" autocomplete="off" required />
+            </label>
+            <div class="form-grid">
+              <label>서버 주소 <span class="optional">선택</span><input name="api_base" placeholder="콘솔에서 안내된 주소" /></label>
+              <label>휴대폰 번호 <span class="optional">선택</span><input name="msisdn" placeholder="발신자 번호" inputmode="tel" /></label>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" type="submit">ClawOps에 연결</button>
+              <span id="enroll-msg" class="msg" role="status" aria-live="polite"></span>
+            </div>
+          </form>
+        </section>
 
-    <!-- 서비스 제어 -->
-    <section class="panel">
-      <div class="panel-h"><h2>4 · 서비스</h2></div>
-      <div class="btn-row">
-        <button class="btn btn-primary" data-svc="start">시작</button>
-        <button class="btn" data-svc="restart">재시작</button>
-        <button class="btn btn-danger" data-svc="stop">중지</button>
-        <span id="svc-msg" class="msg"></span>
-      </div>
-    </section>
+        <section class="stage" id="bluetooth-panel" hidden>
+          <div class="stage-copy">
+            <span class="eyebrow">2단계</span>
+            <h2>휴대폰을 블루투스로 연결합니다</h2>
+            <p>휴대폰에서 블루투스 검색 허용 상태를 켠 뒤 장치를 찾으세요. 핸즈프리 통화를 지원하는 휴대폰을 사용할 수 있습니다.</p>
+          </div>
+          <div class="stage-toolbar"><span>검색된 장치</span><button class="btn btn-primary" id="btn-scan" type="button">장치 검색</button></div>
+          <div id="bt-list" class="device-list"><div class="empty"><b>아직 검색하지 않았습니다</b><span>장치 검색을 누르면 주변 휴대폰이 여기에 표시됩니다.</span></div></div>
+        </section>
 
-    <!-- 로그 -->
-    <section class="panel">
-      <div class="panel-h">
-        <h2>로그 <span class="tag">최신↑ · 5초 자동</span></h2>
-        <button class="btn" id="btn-logs">지금 새로고침</button>
+        <section class="stage" id="config-panel" hidden>
+          <div class="stage-copy">
+            <span class="eyebrow">3단계</span>
+            <h2>통화 회선 정보를 확인합니다</h2>
+            <p>연결 과정에서 채워진 값을 확인하세요. 자동으로 입력되지 않은 항목만 직접 입력하면 됩니다.</p>
+          </div>
+          <div class="stage-toolbar config-toolbar"><span id="config-mode-copy">자동 입력된 값을 확인하고 저장하세요.</span><button class="btn" id="btn-edit-config" type="button" hidden>설정 수정</button></div>
+          <form id="prov-form" class="form form-config">
+            <div class="form-grid">
+              <label>블루투스 어댑터 MAC<input name="adapter_mac" placeholder="34:6F:24:…" /></label>
+              <label>휴대폰 MAC<input name="phone_mac" placeholder="페어링하면 자동 입력" /></label>
+              <label>HFP 포트<input name="hfp_port" type="number" placeholder="8" /></label>
+              <label>터널 IP<input name="tunnel_ip" placeholder="ClawOps 연결 시 자동 입력" /></label>
+              <label>Kamailio IP<input name="kamailio_ip" placeholder="ClawOps 연결 시 자동 입력" /></label>
+              <label>내 DID<input name="did" placeholder="셀룰러 회선 번호" /></label>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" id="btn-save-config" type="submit">설정 저장</button>
+              <button class="btn" id="btn-cancel-config" type="button" hidden>취소</button>
+              <span id="prov-msg" class="msg" role="status" aria-live="polite"></span>
+            </div>
+          </form>
+        </section>
+
+        <section class="stage" id="service-panel" hidden>
+          <div class="stage-copy">
+            <span class="eyebrow">4단계</span>
+            <h2>Mobile Gateway를 시작합니다</h2>
+            <p>연결과 장치 설정이 완료되었습니다. 서비스를 시작하면 휴대폰의 셀룰러 회선을 ClawOps에서 사용할 수 있습니다.</p>
+          </div>
+          <div id="restart-required" class="restart-required" hidden><b>변경사항 적용을 위해 재시작이 필요합니다</b><span>현재 통화가 없다면 지금 재시작하세요.</span></div>
+          <div class="service-actions">
+            <button class="btn btn-primary btn-large" data-svc="start">서비스 시작</button>
+            <button class="btn" data-svc="restart">재시작</button>
+            <button class="btn btn-danger" data-svc="stop">중지</button>
+            <span id="svc-msg" class="msg" role="status" aria-live="polite"></span>
+          </div>
+        </section>
+
+        <div class="disclosures">
+          <details>
+            <summary><span><b>고급 설정</b><small>장치와 네트워크 설정을 직접 수정합니다</small></span></summary>
+            <p>장치 설정 단계에서 어댑터, HFP 포트, 터널 정보를 수정할 수 있습니다.</p>
+          </details>
+          <details>
+            <summary><span><b>진단 로그</b><small>시스템 로그와 연결 상태를 확인합니다</small></span></summary>
+            <div class="log-toolbar"><span>5초마다 자동 갱신</span><button class="btn btn-small" id="btn-logs" type="button">새로고침</button></div>
+            <pre id="logs" class="logs">—</pre>
+          </details>
+        </div>
       </div>
-      <pre id="logs" class="logs">—</pre>
-    </section>
+
+      <aside class="summary" aria-label="게이트웨이 요약">
+        <h2>게이트웨이 요약</h2>
+        <dl>
+          <div><dt>장치 이름</dt><dd id="gateway-name">clawops-gateway</dd></div>
+          <div><dt>ClawOps</dt><dd><span class="dot" id="enroll-dot"></span><span id="enroll-badge">미연결</span></dd></div>
+          <div><dt>블루투스</dt><dd><span class="dot" id="summary-bt-dot"></span><span id="summary-bt">대기 중</span></dd></div>
+          <div><dt>서비스</dt><dd><span class="dot" id="summary-service-dot"></span><span id="summary-service">정지됨</span></dd></div>
+        </dl>
+        <div class="next-step">
+          <span>다음 단계</span>
+          <b id="next-step-title">ClawOps에 연결하세요</b>
+          <p id="next-step-copy">등록 토큰을 입력하면 설정을 계속할 수 있습니다.</p>
+        </div>
+      </aside>
+    </div>
   </main>
-
-  <footer class="foot">ClawOps Mobile Gateway · control-agent</footer>
   <script src="/app.js"></script>
 </body>
 </html>
