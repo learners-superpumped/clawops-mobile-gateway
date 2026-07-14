@@ -31,14 +31,21 @@ jobs:
   build:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test
-    runs-on: ubuntu-22.04
+    # 아키텍처별 네이티브 러너 — arm64 를 QEMU 로 에뮬레이트하면 asterisk 소스빌드가
+    # ~50분(vs 네이티브 ~7분)까지 늘어 릴리스가 사실상 막힌다. arm64 러너는 public
+    # 레포에서 무료(GA 2025-08). ⚠️ 레포가 private 이 되면 이 라벨은 실패한다.
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [amd64, arm64]
+        include:
+          - arch: amd64
+            runner: ubuntu-22.04
+          - arch: arm64
+            runner: ubuntu-22.04-arm
     steps:
       - uses: actions/checkout@v4
-      - uses: docker/setup-qemu-action@v3
+      # QEMU 불필요 — 각 러너가 타깃 아키텍처 네이티브다.
       - uses: docker/setup-buildx-action@v3
       - name: Resolve package version
         run: echo "PKG_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
