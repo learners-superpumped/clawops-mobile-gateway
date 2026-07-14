@@ -16,11 +16,14 @@ command -v dpkg >/dev/null 2>&1 || die "Ubuntu 또는 Debian에서만 설치할 
 command -v sha256sum >/dev/null 2>&1 || die "sha256sum이 필요합니다."
 
 if [ -r /etc/os-release ]; then
+  # ⚠️ 서브셸에서 읽는다 — /etc/os-release 는 VERSION("22.04.5 LTS (Jammy Jellyfish)") 을
+  #    정의하므로 현재 셸에서 source 하면 설치할 패키지 버전인 VERSION 을 덮어써
+  #    TAG 가 "v22.04.5 LTS (Jammy Jellyfish)" 가 되고 다운로드 URL 이 깨진다.
   # shellcheck disable=SC1091
-  . /etc/os-release
-  case "${ID:-}" in
+  OS_ID=$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")
+  case "$OS_ID" in
     ubuntu|debian) ;;
-    *) die "지원하지 않는 OS입니다: ${ID:-unknown} (Ubuntu 22.04 또는 Debian 12 필요)" ;;
+    *) die "지원하지 않는 OS입니다: ${OS_ID:-unknown} (Ubuntu 22.04 또는 Debian 12 필요)" ;;
   esac
 fi
 
