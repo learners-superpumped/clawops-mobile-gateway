@@ -1,82 +1,51 @@
 # ClawOps Mobile Gateway
 
-블루투스(HFP)로 페어링한 휴대폰의 **셀룰러 회선**을 ClawOps SIP 로 브릿지하는 게이트웨이를
-설치형 `.deb` 로 제공한다. 유저가 리눅스 박스(또는 프리번 어플라이언스)에 설치하면
-`Asterisk + chan_mobile` 환경이 깔리고, WireGuard 터널로 ClawOps 에 IP-신뢰로 접속한다.
-설치 후 **로컬 Web UI(`:8088`)** 에서 블루투스 페어링·프로비저닝·서비스 제어를 GUI 로 한다.
+블루투스로 연결한 휴대폰의 **셀룰러 회선**을 ClawOps 에 연결하는 게이트웨이입니다.
+리눅스 장비에 설치하면 그 휴대폰 번호로 통화를 주고받을 수 있습니다.
 
-> **왜 소스빌드/vendored 인가**: apt 의 `asterisk-modules` 는 `chan_mobile.so` 를 뺀다(bluez 의존).
-> 그래서 Asterisk 22.10.x 를 직접 빌드하고, 배포판 asterisk 와 충돌하지 않도록
-> `/opt/clawops-gw` 프리픽스로 vendored 설치한다.
+## 요구사항
 
-## 상태
-🟢 **`.deb`(멀티아치) + control-agent(로컬 Web UI/프로비저닝 API) 구현.** OrbStack Ubuntu 22.04
-실기 설치→기동 검증 완료. 프로비저닝 API + 박스 레지스트리(1대→N대)·APT 레포는 후속.
-
-## 요구사항 (지원 매트릭스)
 | 항목 | 지원 |
 |---|---|
-| OS | **glibc ≥ 2.35 인 데비안 계열** — Ubuntu 22.04 / 24.04, Debian 12+ (파생 배포판 포함) |
+| OS | glibc 2.35 이상의 데비안 계열 — Ubuntu 22.04 / 24.04, Debian 12 이상 |
 | 아키텍처 | amd64 · arm64 |
-| BT | BlueZ 지원 어댑터 (인증 동글 화이트리스트는 후속) |
-| ⚠️ 맥/윈도우 | 네이티브 불가. 리눅스 VM + USB 동글 패스스루로만 |
+| 블루투스 | BlueZ 를 지원하는 어댑터 |
+| 휴대폰 | 블루투스 핸즈프리(HFP) 를 지원하고 셀룰러 통화가 가능한 기기 |
+| 계정 | ClawOps 계정 (등록 토큰 발급에 필요) |
 
-> **배포판별 빌드는 필요 없다.** 실제 하한은 배포판 버전이 아니라 **glibc**(빌드 베이스
-> `ubuntu:22.04` = 2.35)이고, 이건 하한이라 그 이상에선 그대로 돈다. 22.04(amd64)·24.04(arm64)
-> 실기 설치로 검증했다. 늘려야 할 축은 아키텍처(amd64/arm64)뿐.
->
-> t64(64-bit `time_t`) 전환은 문제가 되지 않는다 — `libbluetooth3` 는 애초에 전환 대상이
-> 아니라 24.04 에도 같은 이름으로 존재하고, amd64/arm64 는 원래 `time_t` 가 64비트다.
+맥과 윈도우에는 설치할 수 없습니다. 리눅스 가상머신에 USB 블루투스 동글을 연결하면 사용할 수 있습니다.
 
-## 빌드
+## 설치
+
+게이트웨이 장비에서 실행합니다.
+
 ```sh
-make build-arm64     # Apple Silicon 에선 네이티브급으로 빠름
-make build-amd64     # mac 에선 QEMU 에뮬(느림)
-make list            # dist/<arch>/clawops-mobile-gateway_<ver>_<arch>.deb
+curl -fsSL https://raw.githubusercontent.com/learners-superpumped/clawops-mobile-gateway/main/scripts/install-release.sh | sudo sh
 ```
-`docker buildx` 멀티아치. asterisk 는 소스빌드, Go control-agent 는 `$BUILDPLATFORM` 에서
-크로스컴파일(QEMU 회피). Docker Desktop 기본 빌더로 동작.
 
-## 설치 & 프로비저닝 (리눅스 타깃)
+특정 버전을 설치하거나 롤백하려면 버전을 지정합니다.
+
 ```sh
-sudo sh scripts/install.sh      # dist/<arch>/*.deb 자동 설치
-```
-설치되면 **control-agent 가 자동 기동**한다. 브라우저로:
-```
-http://<이 박스 IP>:8088
-```
-→ ① 블루투스 페어링 ② 값 입력(어댑터/폰 MAC·HFP포트·터널IP·kamailio IP·DID) → `.conf` 자동 렌더
-③ 서비스 시작 · 로그 확인. (asterisk 는 프로비저닝 완료 후에만 기동)
-
-> ⚠️ **보안(MVP)**: control-agent 는 인증 없이 `:8088` 전 인터페이스에 바인드 —
-> 신뢰된 LAN 전제. 후속에서 토큰 인증/바인드 제한 예정.
-
-## 레이아웃
-```
-clawops-mobile-gateway/            # 이 레포 루트
-├── agent/                    # control-agent (Go) — 로컬 Web UI + 프로비저닝 API
-│   ├── main.go · system.go · config.go · handlers.go
-│   └── web/                  # embed 되는 self-contained SPA (index.html/style.css/app.js)
-├── build/Dockerfile          # asterisk 소스빌드 + agent 크로스컴파일 → .deb (buildx 멀티아치)
-├── packaging/deb/            # control.in · postinst · prerm
-├── files/
-│   ├── systemd/              # clawops-asterisk.service · clawops-agent.service
-│   ├── udev/                 # hci voice=0x0060 영구화 보조
-│   ├── bin/clawops-bt-prep.sh# voice 0x0060 강제(매 기동 전)
-│   └── config/*.tmpl         # chan_mobile · pjsip(WG) · extensions 템플릿(agent 가 .conf 로 렌더)
-├── scripts/install.sh
-└── Makefile
+curl -fsSL https://raw.githubusercontent.com/learners-superpumped/clawops-mobile-gateway/main/scripts/install-release.sh | sudo VERSION=0.1.2 sh
 ```
 
-## 수동 프로비저닝 (Web UI 대신)
-1. 휴대폰 BT 페어링 (`bluetoothctl`: scan → pair → trust, connect 는 금지)
-2. `/etc/clawops-gw/asterisk/*.tmpl` → 값 치환 후 **`.tmpl` 을 떼고 `.conf` 로 저장** (asterisk 는 `.conf` 만 읽음)
-3. WireGuard 터널 기동 (`wg-quick@wg0`)
-4. `systemctl start clawops-asterisk`
+## 설치 후
 
-## 후속 (로드맵)
-- **control-agent 심화**: WireGuard 자동 프로비저닝(콜홈)·인증·`.conf` 상태 검증
-- **프로비저닝 API + 박스 레지스트리**: 1대→N대. 터널 IP 풀·계정 매핑·크로스테넌트 격리
-  (현재 단일 박스 전제의 터널 IP 하드코딩을 레지스트리 기반으로 일반화)
-- **APT 레포(GPG 서명)**: `apt install` + CVE OTA 업데이트
-- **인증 동글 화이트리스트**
+같은 네트워크의 PC 에서 브라우저로 관리 화면을 엽니다.
+
+```
+http://<장비 IP>:8088
+```
+
+화면의 5단계를 따라가면 연결이 끝납니다.
+
+**ClawOps 연결** → **블루투스 페어링** → **번호 검증** → **장치 설정** → **서비스 시작**
+
+화면별 자세한 안내는 **[설치 가이드](docs/mobile-gateway-install.md)** 를 참고하세요.
+
+> ⚠️ 관리 화면에는 인증이 없습니다. 신뢰할 수 있는 내부 네트워크에서만 사용하고,
+> 인터넷에 직접 공개하지 마세요.
+
+## 문의
+
+[ClawOps 콘솔](https://platform.claw-ops.com) 또는 support@claw-ops.com
