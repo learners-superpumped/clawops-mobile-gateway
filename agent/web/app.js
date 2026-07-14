@@ -105,8 +105,12 @@ function updateJourney(body) {
   const paired = Boolean(body.bluetooth?.paired?.length);
   const provisioned = Boolean(body.config?.provisioned);
   const running = body.service?.active === "active" && body.chan_mobile?.running;
-  // 번호 검증(3단계)은 페어링 이후, 설정 이전. 검증 통과해야 DID 가 확정돼 설정/서비스가 열린다.
-  const completed = [enrolled, paired, verified, running];
+  // "정상 운영" = 서비스가 떠 있는 것만으로는 부족하다. 번호 검증을 통과해(DID 확정) ClawOps 가
+  // 이 게이트웨이를 인정하고, 터널이 실제로 붙어 있어야(핸드셰이크) 통화가 오간다.
+  // 재등록하면 서버가 pending_verification 으로 되돌리므로 asterisk 가 옛 설정으로 계속
+  // 돌고 있어도 통화는 불가능하다 — 그때 "정상 운영" 이라 하면 거짓말이다.
+  const operational = running && verified && tunnelLinkFresh(body.tunnel);
+  const completed = [enrolled, paired, verified, operational];
   // 4스텝: 연결 → 페어링 → 번호 검증 → 서비스 시작.
   // 회선 정보(어댑터/폰 MAC·HFP 포트·터널/kamailio IP·DID)는 앞 단계에서 자동으로 채워지므로
   // 별도의 "장치 설정" 단계를 두지 않는다(값 조정은 고급 설정에서).
@@ -125,13 +129,13 @@ function updateJourney(body) {
     "ClawOps에 연결하세요",
     "휴대폰을 페어링하세요",
     "발신 번호를 검증하세요",
-    running ? "게이트웨이가 동작 중입니다" : !provisioned ? "회선 정보를 확인하세요" : "서비스를 시작하세요",
+    operational ? "게이트웨이가 동작 중입니다" : !provisioned ? "회선 정보를 확인하세요" : "서비스를 시작하세요",
   ];
   const copies = [
     "등록 토큰을 입력하면 다음 단계가 열립니다.",
     "휴대폰을 연결하면 번호 검증을 진행합니다.",
     "페어링한 휴대폰에서 안내 문자를 보내면 번호가 확정됩니다.",
-    running
+    operational
       ? "설정을 수정하려면 고급 설정을 여세요."
       : !provisioned
         ? "자동으로 채워지지 않은 값이 있습니다. 고급 설정에서 확인하세요."
@@ -140,10 +144,24 @@ function updateJourney(body) {
   $("#next-step-title").textContent = restartRequired ? "서비스를 재시작하세요" : titles[next];
   $("#next-step-copy").textContent = restartRequired ? "저장된 변경사항은 재시작 후 적용됩니다." : copies[next];
 
+  // 검증까지 끝났는데 핸드셰이크가 없으면 진짜 끊김(폐기됐거나 네트워크 장애).
+  // ⚠️ verified 일 때만 판정한다 — 검증 전(재등록 직후 포함)에는 서버가 게이트웨이를
+  //    pending_verification 으로 두고 WG peer 를 등록하지 않으므로 핸드셰이크가 없는 게
+  //    정상이다. 그 구간에 "연결이 끊겼다" 고 하면 멀쩡한 온보딩을 고장으로 오인시킨다.
+  const linkDown = running && verified && !tunnelLinkFresh(body.tunnel);
   const badge = $("#lifecycle-badge");
-  badge.className = `lifecycle-badge ${restartRequired ? "is-attention" : running ? "is-running" : ""}`.trim();
-  badge.textContent = restartRequired ? "재시작 필요" : running ? "정상 운영" : provisioned ? "시작 대기" : "설정 중";
-  $("#operation-banner").hidden = !running || restartRequired;
+  badge.className = `lifecycle-badge ${restartRequired || linkDown ? "is-attention" : operational ? "is-running" : ""}`.trim();
+  badge.textContent = restartRequired
+    ? "재시작 필요"
+    : linkDown
+      ? "연결 끊김"
+      : operational
+        ? "정상 운영"
+        : provisioned && verified
+          ? "시작 대기"
+          : "설정 중";
+  $("#link-down").hidden = !linkDown;
+  $("#operation-banner").hidden = !operational || restartRequired;
   $("#restart-required").hidden = !restartRequired;
 
   $("#enroll-connected").hidden = !enrolled || reenrolling;
@@ -176,10 +194,13 @@ async function refreshStatus() {
   const serviceLevel = service === "active" ? "ok" : service === "failed" ? "bad" : "";
   const bluetooth = body.bluetooth || {};
   const bluetoothLevel = bluetooth.adapter_present ? (bluetooth.powered ? "ok" : "warn") : "bad";
+  // 헤더의 "시스템" 도 updateJourney 의 operational 과 같은 기준이어야 한다 —
+  // 서비스만 떠 있고 검증/터널이 안 된 상태를 "정상" 이라 하면 안 된다.
   const running = body.chan_mobile?.running && service === "active";
+  const healthy = running && verified && tunnelLinkFresh(body.tunnel);
 
-  setLevel("#system-dot", running ? "ok" : body.config?.provisioned ? "warn" : "");
-  $("#health").textContent = running ? "정상" : body.config?.provisioned ? "준비됨" : "설정 필요";
+  setLevel("#system-dot", healthy ? "ok" : body.config?.provisioned ? "warn" : "");
+  $("#health").textContent = healthy ? "정상" : body.config?.provisioned ? "준비됨" : "설정 필요";
   setLevel("#bluetooth-dot", bluetoothLevel);
   $("#bluetooth-health").textContent = bluetooth.adapter_present ? (bluetooth.powered ? "켜짐" : "꺼짐") : "어댑터 없음";
   setLevel("#service-dot", serviceLevel);

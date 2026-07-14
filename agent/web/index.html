@@ -41,6 +41,11 @@
 
     <div class="workspace">
       <div class="canvas">
+        <!-- 터널이 끊겼는데 서비스는 떠 있는 상태. 폐기됐거나(콘솔에서 게이트웨이 폐기)
+             네트워크 장애다 — 박스는 둘을 구분할 수 없으므로 설정을 지우지 않고 알린다. -->
+        <div id="link-down" class="change-banner" hidden role="status">
+          <div><b>ClawOps 연결이 끊겼습니다</b><span>통화를 주고받을 수 없습니다. 콘솔에서 이 게이트웨이가 폐기되지 않았는지, 인터넷 연결에 문제가 없는지 확인하세요. 폐기된 경우 새 등록 토큰으로 다시 연결해야 합니다.</span></div>
+        </div>
         <div id="operation-banner" class="operation-banner" hidden>
           <div><b>게이트웨이가 정상 동작 중입니다</b><span>회선 설정을 변경하려면 아래 고급 설정을 여세요. 저장 후 서비스 재시작이 필요합니다.</span></div>
         </div>
