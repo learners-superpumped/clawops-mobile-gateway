@@ -76,6 +76,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 34px 56px 56px; }
 .connected-state { min-height: 180px; padding: 24px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface-soft); display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .connected-state[hidden] { display: none; }
 .connected-state > div { display: flex; flex-direction: column; }
+.connected-actions { flex-direction: row !important; gap: 8px; flex-wrap: wrap; }
 .connected-state .state-label { margin-bottom: 8px; color: var(--ok); font-size: 11px; font-weight: 700; }
 .connected-state b { font-size: 16px; }
 .connected-state p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
@@ -102,12 +103,18 @@ main { max-width: 1400px; margin: 0 auto; padding: 34px 56px 56px; }
 .empty { min-height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed #cdd0d5; border-radius: 7px; color: var(--muted); text-align: center; }
 .empty b { color: var(--text); margin-bottom: 4px; }
 .service-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding-top: 8px; }
-.disclosures { max-width: 760px; border-top: 1px solid var(--line); }
+/* 스테이지(1단계 카드 등)와 붙어 보이지 않도록 위 여백을 준다. */
+.disclosures { max-width: 760px; margin-top: 32px; border-top: 1px solid var(--line); }
 details { border-bottom: 1px solid var(--line); }
-summary { min-height: 72px; padding: 0 10px; display: flex; align-items: center; cursor: pointer; list-style-position: outside; }
-summary span { display: flex; flex-direction: column; margin-left: 6px; }
-summary b { font-size: 13px; } summary small { color: var(--muted); font-size: 11px; }
+/* 제목/부제목이 카드 높이 안에 들어오도록 — min-height 고정 대신 패딩으로 자라게 두고,
+   marker 와 텍스트가 겹치지 않게 gap 을 준다(고정 높이면 부제목이 잘렸다). */
+summary { padding: 18px 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; list-style-position: outside; }
+summary span { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+summary b { font-size: 13px; line-height: 1.4; }
+summary small { color: var(--muted); font-size: 11px; line-height: 1.45; }
 details > p { margin: -4px 32px 20px; color: var(--muted); font-size: 12px; }
+details > .field-help { margin: -4px 32px 16px; }
+details > .config-toolbar, details > form { margin: 0 32px 20px; }
 .logs { max-height: 260px; margin: 0 0 20px; overflow: auto; padding: 14px; border-radius: 6px; color: #d8dfeb; background: #1d2430; white-space: pre-wrap; word-break: break-word; font: 11px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .summary { padding: 46px 28px; background: var(--surface-soft); }
 .summary h2 { margin: 0 0 28px; font-size: 15px; }

@@ -40,6 +40,7 @@ func main() {
 	mux.HandleFunc("GET /api/config", srv.handleConfigGet)
 	mux.HandleFunc("POST /api/config", srv.handleConfigSave)
 	mux.HandleFunc("POST /api/enroll", srv.handleEnroll)
+	mux.HandleFunc("POST /api/reset", srv.handleReset)
 	mux.HandleFunc("GET /api/verification", srv.handleVerification)
 	mux.HandleFunc("POST /api/service", srv.handleService)
 	mux.HandleFunc("GET /api/logs", srv.handleLogs)

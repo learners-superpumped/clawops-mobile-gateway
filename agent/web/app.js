@@ -33,6 +33,19 @@ function btPairHint(raw) {
   return out || "페어링에 실패했습니다. 다시 시도하세요.";
 }
 
+// 국내 전화번호를 사람이 읽는 형태로 — 서버는 정규화된 국내표기(0으로 시작, 구분자 없음)를
+// 준다. 규칙은 ClawOps 의 phone-normalize 와 같은 범위(휴대폰/지역/070·050/대표번호)를 다룬다.
+function formatKrPhone(raw) {
+  const s = String(raw || "").replace(/[^0-9]/g, "");
+  if (!s) return "";
+  if (/^01[016789]\d{7,8}$/.test(s)) return s.replace(/^(\d{3})(\d{3,4})(\d{4})$/, "$1-$2-$3"); // 010-1234-5678
+  if (/^02\d{7,8}$/.test(s)) return s.replace(/^(\d{2})(\d{3,4})(\d{4})$/, "$1-$2-$3"); // 02-123-4567
+  if (/^0(50\d|70|3[1-3]|4[1-4]|5[1-5]|6[1-4])\d{7,8}$/.test(s))
+    return s.replace(/^(\d{3,4})(\d{3,4})(\d{4})$/, "$1-$2-$3"); // 070-1234-5678 / 0507-1234-5678
+  if (/^1[5-9]\d{6}$/.test(s)) return s.replace(/^(\d{4})(\d{4})$/, "$1-$2"); // 1588-1234
+  return raw; // 규칙 밖이면 원본 그대로(가공해서 틀리게 보이는 것보다 낫다)
+}
+
 // 터널이 "실제로" 붙어 있는지 = 최근 핸드셰이크가 있었는지. wg0 인터페이스 존재만으로는
 // 알 수 없다(폐기돼 서버 peer 가 사라져도 인터페이스는 남는다).
 const TUNNEL_STALE_SEC = 300;
@@ -82,7 +95,8 @@ function setConfigEditing(editing) {
   editingConfig = editing || !provisioned;
   const form = $("#prov-form");
   form.classList.toggle("is-readonly", !editingConfig);
-  $$("input", form).forEach((input) => { input.readOnly = !editingConfig; });
+  // data-locked(=DID) 는 편집 모드에서도 잠근다 — 검증으로만 확정되는 값이다.
+  $$("input", form).forEach((input) => { input.readOnly = !editingConfig || input.hasAttribute("data-locked"); });
   $("#btn-edit-config").hidden = editingConfig || !provisioned;
   $("#btn-cancel-config").hidden = !editingConfig || !provisioned;
   $("#config-mode-copy").textContent = editingConfig ? "변경할 값을 입력한 뒤 저장하세요." : "현재 적용된 설정입니다. 변경하려면 설정 수정을 누르세요.";
@@ -260,7 +274,7 @@ function renderVerification(info) {
   // 검증 완료
   const isDone = state === "verified";
   done.hidden = !isDone;
-  if (isDone) $("#verify-number").textContent = info.verified_number || "—";
+  if (isDone) $("#verify-number").textContent = formatKrPhone(info.verified_number) || "—";
 
   // 차단(만료/quota) — 사유 노출
   const isBlocked = state === "expired" || state === "quota_exceeded" || state === "gone";
@@ -279,7 +293,7 @@ function renderVerification(info) {
   const showPending = state === "pending";
   pending.hidden = !showPending;
   if (showPending) {
-    $("#verify-receive").textContent = info.receive_number || "—";
+    $("#verify-receive").textContent = formatKrPhone(info.receive_number) || "—";
     $("#verify-code").textContent = info.nonce || "—";
     setLevel("#verify-dot", "warn");
     $("#verify-status-text").textContent = "문자 수신을 기다리는 중… (보낸 뒤 잠시 기다리세요)";
@@ -314,6 +328,30 @@ $("#enroll-form").addEventListener("submit", async (event) => {
     await refreshStatus();
     showStep(1);
   } else setMessage("#enroll-msg", body.error || body.wg_output || "연결하지 못했습니다.", "error");
+});
+
+// 연결 해제 = 이 박스의 로컬 상태를 지워 처음 상태로 되돌린다. ClawOps 콘솔에서 폐기한 뒤
+// 새로 연결하거나, 박스를 다른 계정으로 옮길 때 쓴다. 서버의 게이트웨이 행은 콘솔에서
+// 별도로 폐기해야 한다(박스가 서버 상태를 바꿀 권한은 없다).
+$("#btn-reset").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  if (!window.confirm("ClawOps 연결을 해제합니다.\n\n서비스가 중지되고 등록 정보·페어링한 휴대폰·터널 설정이 모두 삭제됩니다. 다시 사용하려면 새 등록 토큰으로 연결해야 합니다.\n\n계속할까요?")) return;
+  button.disabled = true;
+  button.textContent = "해제 중…";
+  const { ok, body } = await api("/api/reset", { method: "POST", body: JSON.stringify({}) });
+  button.disabled = false;
+  button.textContent = "연결 해제";
+  if (!ok) {
+    setMessage("#enroll-msg", body?.error || "연결 해제에 실패했습니다.", "error");
+    return;
+  }
+  // 화면 상태도 처음으로 — 폴링이 새 상태를 읽어오지만 여정 초기화는 명시적으로 한다.
+  reenrolling = false;
+  verified = false;
+  journeyInitialized = false;
+  await refreshStatus();
+  await refreshVerification();
+  setMessage("#enroll-msg", "연결이 해제되었습니다. 새 등록 토큰으로 다시 연결하세요.");
 });
 
 $("#btn-edit-config").addEventListener("click", () => setConfigEditing(true));

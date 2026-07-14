@@ -61,7 +61,10 @@
           </div>
           <div id="enroll-connected" class="connected-state" hidden>
             <div><span class="state-label">ClawOps 연결</span><b>이 게이트웨이는 등록되어 있습니다</b><p>터널 IP <code id="connected-tunnel-ip">—</code></p></div>
-            <button class="btn" id="btn-reenroll" type="button">새 토큰으로 재등록</button>
+            <div class="connected-actions">
+              <button class="btn" id="btn-reenroll" type="button">새 토큰으로 재등록</button>
+              <button class="btn btn-danger" id="btn-reset" type="button">연결 해제</button>
+            </div>
           </div>
           <form id="enroll-form" class="form form-primary">
             <label>등록 토큰
@@ -133,7 +136,9 @@
                 <label>HFP 포트<input name="hfp_port" type="number" placeholder="페어링 시 자동" /></label>
                 <label>터널 IP<input name="tunnel_ip" placeholder="ClawOps 연결 시 자동" /></label>
                 <label>Kamailio IP<input name="kamailio_ip" placeholder="ClawOps 연결 시 자동" /></label>
-                <label>내 DID <span class="optional">검증 자동</span><input name="did" placeholder="번호 검증 시 자동" readonly /></label>
+                <!-- DID 는 번호 검증(MO SMS)으로만 확정된다. 손으로 바꾸면 소유하지 않은 번호가
+                     발신 caller-id 로 들어가 kamailio 소유검증에 걸린다 → 항상 읽기 전용. -->
+                <label>내 DID<input name="did" placeholder="번호 검증 시 자동" readonly data-locked /></label>
               </div>
               <div class="form-actions">
                 <button class="btn btn-primary" id="btn-save-config" type="submit">설정 저장</button>
