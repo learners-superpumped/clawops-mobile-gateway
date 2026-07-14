@@ -99,6 +99,13 @@ func (c *ConfigManager) Save(p Provisioning) ([]string, error) {
 	if err := os.WriteFile(c.statePath(), b, 0o600); err != nil {
 		return nil, err
 	}
+	// ⚠️ 값이 다 차기 전엔 렌더하지 않는다 — 빈 값으로 .conf 를 쓰면
+	//    (chan_mobile 의 address= 가 비는 식) clawops-asterisk 는 enable 되어 있으므로
+	//    재부팅 시 그 망가진 설정으로 기동을 시도한다. state.json 은 위에서 이미 저장했으므로
+	//    부분 진행은 그대로 보존된다.
+	if len(p.missing()) > 0 {
+		return nil, nil
+	}
 	return renderTemplates(sysconfDir, p.placeholders())
 }
 

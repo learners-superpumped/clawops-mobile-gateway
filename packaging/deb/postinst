@@ -18,6 +18,17 @@ case "$1" in
 
     # control-agent 는 즉시 기동 — 통화엔 관여 안 하고 로컬 Web UI/프로비저닝 API 만 제공.
     systemctl enable --now clawops-agent.service || true
+    # ⚠️ `enable --now` 는 멈춰 있을 때 start 만 한다 — 이미 실행 중이면 아무것도 안 해서
+    #    업그레이드 시 디스크는 새 바이너리인데 프로세스는 옛 버전이 그대로 남는다(옛 Web UI 서빙).
+    #    try-restart 는 실행 중일 때만 재시작하므로 신규 설치에선 no-op.
+    systemctl try-restart clawops-agent.service || true
+
+    # ⚠️ asterisk 는 일부러 재시작하지 않는다 — 통화 중이면 끊긴다.
+    #    새 버전 적용은 운영자가 통화 없는 시점에 직접 restart 한다.
+    if systemctl is-active --quiet clawops-asterisk.service; then
+      echo "ℹ️  clawops-asterisk 는 통화 보호를 위해 재시작하지 않았습니다."
+      echo "   새 버전 적용: sudo systemctl restart clawops-asterisk"
+    fi
 
     cat <<'EOF'
 ──────────────────────────────────────────────────────────

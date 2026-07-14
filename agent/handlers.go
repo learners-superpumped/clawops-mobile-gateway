@@ -113,7 +113,38 @@ func (s *Server) handleBTPair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out, ok := s.sys.Pair(body.MAC)
-	writeJSON(w, statusFor(ok), map[string]any{"ok": ok, "output": out})
+	if !ok {
+		writeJSON(w, statusFor(false), map[string]any{"ok": false, "output": out})
+		return
+	}
+
+	// 페어링은 확정된 사실이므로 회선 정보를 여기서 확보해 즉시 저장한다.
+	//  - 폼에만 채우고 사용자의 "저장"을 기다리면 새로고침 한 번에 값이 날아간다.
+	//  - HFP 포트는 사용자가 알 수 없는 값이고(sdptool 조회), 폰이 가깝고 깨어 있는
+	//    지금이 조회에 가장 유리한 시점이다. 나중에 4단계에서 시도하면 폰이 멀어지거나
+	//    잠들어 "Host is down" 으로 실패한다.
+	//  - 어댑터 MAC 은 이미 status 로 알고 있다. 사용자에게 물을 이유가 없다.
+	p := s.cfg.Load()
+	p.PhoneMAC = body.MAC
+	if p.AdapterMAC == "" {
+		p.AdapterMAC = s.sys.BTStatus().AdapterMAC
+	}
+	if port := s.sys.HFPPort(body.MAC); port > 0 {
+		p.HFPPort = port
+	}
+	rendered, err := s.cfg.Save(p)
+	if err != nil {
+		// 페어링 자체는 성공했으므로 ok=true 를 유지하되 저장 실패를 알린다.
+		writeJSON(w, http.StatusOK, map[string]any{
+			"ok": true, "output": out, "save_error": err.Error(),
+			"provisioning": p, "missing": p.missing(),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"ok": true, "output": out, "rendered": rendered,
+		"provisioning": p, "missing": p.missing(),
+	})
 }
 
 // ── /api/config ──────────────────────────────────────────────────

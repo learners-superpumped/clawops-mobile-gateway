@@ -1,7 +1,7 @@
 # ClawOps Mobile Gateway — 멀티아치 .deb 빌드
 # 사용: mobile-gateway/ 에서 `make build-arm64` 등 실행.
 
-PKG_VERSION ?= 0.1.2
+PKG_VERSION ?= 0.1.3
 BUILD_BASE  ?= ubuntu:22.04
 DIST        ?= dist
 CTX         := .

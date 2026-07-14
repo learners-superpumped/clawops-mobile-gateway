@@ -75,13 +75,43 @@ echo "패키지 검증 완료. 설치 중..."
 apt-get install -y "$TMP/$FILE"
 systemctl enable --now clawops-agent
 
-IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-[ -n "$IP" ] || IP="<게이트웨이-IP>"
+# 관리 화면 주소 안내 — 반드시 사설 LAN IP 를 고른다.
+#  ⚠️ `hostname -I | awk '{print $1}'` 은 인터페이스 순서대로 뱉으므로 공인 IP 가 붙은
+#     장비에선 공인 주소를 안내하게 된다. 관리 화면은 인증이 없으므로 그건 "인증 없는
+#     제어판을 인터넷에 열어라"라고 안내하는 꼴이다(실기에서 공인 IP 가 안내됐다).
+#     터널 IP(10.9.x)는 브라우저로 접근할 수 없으니 함께 제외한다.
+LAN_IP=""
+for ip in $(hostname -I 2>/dev/null); do
+  case "$ip" in
+    10.9.*) continue ;;                                     # WireGuard 터널
+    172.17.*|172.18.*) continue ;;                          # docker 브리지
+    192.168.*|10.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*)
+      LAN_IP="$ip"; break ;;
+  esac
+done
+[ -n "$LAN_IP" ] || LAN_IP="<게이트웨이-LAN-IP>"
 
 echo
 echo "ClawOps Mobile Gateway $VERSION 설치 완료"
-echo "관리 화면: http://$IP:8088"
+echo "관리 화면: http://$LAN_IP:8088"
 echo
+
+# 공인 IP 가 직접 붙어 있으면 관리 화면이 인터넷에 노출된다 — 경고한다.
+PUBLIC_IF=""
+for ip in $(hostname -I 2>/dev/null); do
+  case "$ip" in
+    10.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*|192.168.*|127.*|169.254.*) ;;
+    *:*) ;;                                                 # IPv6 는 별도 판단
+    *) PUBLIC_IF="$ip"; break ;;
+  esac
+done
+if [ -n "$PUBLIC_IF" ]; then
+  echo "⚠️  경고: 이 장비에 공인 IP($PUBLIC_IF)가 붙어 있습니다."
+  echo "    관리 화면(:8088)에는 인증이 없습니다. 방화벽으로 외부 접근을 차단하세요:"
+  echo "      sudo ufw deny 8088/tcp"
+  echo
+fi
+
 echo "다음 단계:"
 echo "1. ClawOps 콘솔 → 실험실 → 모바일 게이트웨이"
 echo "2. 게이트웨이 등록 → 토큰 복사"

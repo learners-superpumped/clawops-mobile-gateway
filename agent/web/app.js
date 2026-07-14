@@ -18,10 +18,35 @@ function setMessage(selector, text, state = "") {
   element.className = `msg ${state ? `is-${state}` : ""}`.trim();
 }
 
+// bluetoothctl 원문 에러를 사용자가 손 쓸 수 있는 안내로 바꾼다. 원문도 함께 남겨
+// (지원 문의 시 단서) 두되, 무슨 뜻인지는 앞에서 설명한다.
+function btPairHint(raw) {
+  const out = String(raw || "").trim();
+  if (/ConnectionAttemptFailed|Connection timed out|Host is down|Page Timeout/i.test(out))
+    return "휴대폰에 연결하지 못했습니다. 휴대폰을 게이트웨이의 블루투스 동글 가까이(30cm 이내) 두고 다시 시도하세요.";
+  if (/not available/i.test(out))
+    return "휴대폰을 찾지 못했습니다. 휴대폰의 블루투스 설정 화면을 열어 검색 허용 상태로 둔 뒤 다시 시도하세요.";
+  if (/AuthenticationCanceled|AuthenticationFailed|AuthenticationRejected/i.test(out))
+    return "휴대폰에서 페어링이 취소되었습니다. 다시 시도한 뒤 휴대폰에 표시되는 확인을 승인하세요.";
+  if (/AlreadyExists/i.test(out))
+    return "이미 등록된 장치입니다. 휴대폰의 블루투스 목록에서 이 게이트웨이를 삭제한 뒤 다시 시도하세요.";
+  return out || "페어링에 실패했습니다. 다시 시도하세요.";
+}
+
+// 터널이 "실제로" 붙어 있는지 = 최근 핸드셰이크가 있었는지. wg0 인터페이스 존재만으로는
+// 알 수 없다(폐기돼 서버 peer 가 사라져도 인터페이스는 남는다).
+const TUNNEL_STALE_SEC = 300;
+function tunnelLinkFresh(tunnel) {
+  if (!tunnel?.up) return false;
+  const hs = Number(tunnel.latest_handshake || 0);
+  if (!hs) return false; // 0 = 한 번도 핸드셰이크 없음(예: 번호 검증 전이라 peer 미등록)
+  return Date.now() / 1000 - hs < TUNNEL_STALE_SEC;
+}
+
 let currentStatus = null;
 let journeyInitialized = false;
 let activeStep = 0;
-let unlockedSteps = [true, false, false, false, false];
+let unlockedSteps = [true, false, false, false];
 let verified = false; // 번호 검증 통과 여부(state==='verified')
 let formDirty = false;
 let editingConfig = false;
@@ -81,8 +106,11 @@ function updateJourney(body) {
   const provisioned = Boolean(body.config?.provisioned);
   const running = body.service?.active === "active" && body.chan_mobile?.running;
   // 번호 검증(3단계)은 페어링 이후, 설정 이전. 검증 통과해야 DID 가 확정돼 설정/서비스가 열린다.
-  const completed = [enrolled, paired, verified, provisioned, running];
-  unlockedSteps = [true, enrolled, enrolled && paired, enrolled && paired && verified, enrolled && paired && verified && provisioned];
+  const completed = [enrolled, paired, verified, running];
+  // 4스텝: 연결 → 페어링 → 번호 검증 → 서비스 시작.
+  // 회선 정보(어댑터/폰 MAC·HFP 포트·터널/kamailio IP·DID)는 앞 단계에서 자동으로 채워지므로
+  // 별도의 "장치 설정" 단계를 두지 않는다(값 조정은 고급 설정에서).
+  unlockedSteps = [true, enrolled, enrolled && paired, enrolled && paired && verified];
 
   $$(".step").forEach((step, index) => {
     step.classList.toggle("is-complete", completed[index]);
@@ -92,9 +120,23 @@ function updateJourney(body) {
     else step.removeAttribute("title");
   });
 
-  const next = !enrolled ? 0 : !paired ? 1 : !verified ? 2 : !provisioned ? 3 : 4;
-  const titles = ["ClawOps에 연결하세요", "휴대폰을 페어링하세요", "발신 번호를 검증하세요", "장치 설정을 확인하세요", running ? "게이트웨이가 동작 중입니다" : "서비스를 시작하세요"];
-  const copies = ["등록 토큰을 입력하면 다음 단계가 열립니다.", "휴대폰을 연결하면 번호 검증을 진행합니다.", "페어링한 휴대폰에서 안내 문자를 보내면 번호가 확정됩니다.", "회선 정보를 저장하면 서비스를 시작할 수 있습니다.", running ? "설정을 수정하려면 완료된 단계를 선택하세요." : "준비가 끝났습니다. 서비스를 시작하세요."];
+  const next = !enrolled ? 0 : !paired ? 1 : !verified ? 2 : 3;
+  const titles = [
+    "ClawOps에 연결하세요",
+    "휴대폰을 페어링하세요",
+    "발신 번호를 검증하세요",
+    running ? "게이트웨이가 동작 중입니다" : !provisioned ? "회선 정보를 확인하세요" : "서비스를 시작하세요",
+  ];
+  const copies = [
+    "등록 토큰을 입력하면 다음 단계가 열립니다.",
+    "휴대폰을 연결하면 번호 검증을 진행합니다.",
+    "페어링한 휴대폰에서 안내 문자를 보내면 번호가 확정됩니다.",
+    running
+      ? "설정을 수정하려면 고급 설정을 여세요."
+      : !provisioned
+        ? "자동으로 채워지지 않은 값이 있습니다. 고급 설정에서 확인하세요."
+        : "준비가 끝났습니다. 서비스를 시작하세요.",
+  ];
   $("#next-step-title").textContent = restartRequired ? "서비스를 재시작하세요" : titles[next];
   $("#next-step-copy").textContent = restartRequired ? "저장된 변경사항은 재시작 후 적용됩니다." : copies[next];
 
@@ -144,8 +186,19 @@ async function refreshStatus() {
   $("#service-health").textContent = service === "active" ? "동작 중" : service === "failed" ? "오류" : "정지됨";
 
   const enrolled = body.tunnel?.up || body.config?.provisioning?.tunnel_ip;
-  setLevel("#enroll-dot", body.tunnel?.up ? "ok" : enrolled ? "warn" : "");
-  $("#enroll-badge").textContent = body.tunnel?.up ? "연결됨" : enrolled ? "터널 대기" : "미연결";
+  // ⚠️ tunnel.up(=wg0 인터페이스 존재)만으로 "연결됨" 을 판정하면 안 된다. ClawOps 에서
+  //    게이트웨이를 폐기하면 서버측 peer 가 제거돼 실제 통신은 끊기지만, 박스의 wg0 는
+  //    그대로 살아 있어 영원히 "연결됨" 으로 보인다. 실제 도달성의 근거는 핸드셰이크 신선도다.
+  //    (WireGuard 는 트래픽이 있으면 ~2분마다 재핸드셰이크 → 5분을 끊김 기준으로 둔다.)
+  const linkFresh = tunnelLinkFresh(body.tunnel);
+  setLevel("#enroll-dot", linkFresh ? "ok" : enrolled ? "warn" : "");
+  $("#enroll-badge").textContent = linkFresh
+    ? "연결됨"
+    : enrolled
+      ? body.tunnel?.up
+        ? "연결 끊김"
+        : "터널 대기"
+      : "미연결";
   setLevel("#summary-bt-dot", bluetoothLevel);
   $("#summary-bt").textContent = bluetooth.paired?.length ? `휴대폰 ${bluetooth.paired.length}대` : bluetooth.powered ? "대기 중" : "사용 불가";
   setLevel("#summary-service-dot", serviceLevel);
@@ -267,7 +320,7 @@ $("#prov-form").addEventListener("submit", async (event) => {
   setConfigEditing(false);
   setMessage("#prov-msg", "설정을 저장했습니다.", "success");
   await refreshStatus();
-  showStep(4);
+  showStep(3);
 });
 
 $("#btn-scan").addEventListener("click", async (event) => {
@@ -304,18 +357,23 @@ function renderBluetooth(devices) {
     button.addEventListener("click", async () => {
       button.disabled = true;
       button.textContent = "페어링 중…";
-      const { ok } = await api("/api/bluetooth/pair", { method: "POST", body: JSON.stringify({ mac: device.mac }) });
+      setMessage("#bt-msg", "");
+      const { ok, body } = await api("/api/bluetooth/pair", { method: "POST", body: JSON.stringify({ mac: device.mac }) });
       button.textContent = ok ? "페어링됨" : "다시 시도";
       button.disabled = ok;
-      if (ok) {
-        await refreshStatus();
-        setConfigEditing(true);
-        const phoneInput = $('#prov-form [name="phone_mac"]');
-        phoneInput.value = device.mac;
-        formDirty = true;
-        $("#change-banner").hidden = false;
-        showStep(2);
+      if (!ok) {
+        // 실패 원인(ConnectionAttemptFailed=신호 약함/거리, not available=검색 상태 아님 등)을
+        // 그대로 보여준다 — 이게 없으면 사용자는 "다시 시도"만 반복하며 이유를 알 수 없다.
+        setMessage("#bt-msg", btPairHint(body && (body.output || body.error)), "error");
+        return;
       }
+      // 폰 MAC·HFP 포트·어댑터 MAC 은 서버(/api/bluetooth/pair)가 이미 확보해 저장했다.
+      // 예전처럼 폼에만 채우고 dirty 로 두면 새로고침 한 번에 값이 날아갔다.
+      if (body?.missing?.length) {
+        setMessage("#bt-msg", "페어링했지만 일부 회선 정보를 자동으로 채우지 못했습니다. 고급 설정에서 확인하세요.", "warn");
+      }
+      await refreshStatus();
+      showStep(2); // 번호 검증으로
     });
     row.append(info, button);
     list.appendChild(row);

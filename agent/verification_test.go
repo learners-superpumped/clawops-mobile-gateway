@@ -68,6 +68,15 @@ func TestHandleVerification_VerifiedInjectsDID(t *testing.T) {
 	defer srv.Close()
 
 	s := &Server{sys: NewSystem(), cfg: NewConfigManager()}
+	// DID 를 뺀 나머지 값은 이미 채워진 상태 — 검증이 마지막 조각을 넣어 렌더가 완성되는 흐름.
+	// (Save 는 값이 다 차야 렌더한다: 빈 값 .conf 가 디스크에 남으면 재부팅 시 asterisk 가
+	//  그 망가진 설정으로 기동을 시도한다.)
+	if _, err := s.cfg.Save(Provisioning{
+		AdapterMAC: "34:6F:24:D9:11:7A", PhoneMAC: "5C:13:CC:44:82:D6", HFPPort: 8,
+		TunnelIP: "10.9.0.3", KamailioIP: "10.0.1.3",
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := s.cfg.SaveVerification(VerificationState{Nonce: "CODE-7K9F2MAB", ReceiveNumber: "07052358010", APIBase: srv.URL}); err != nil {
 		t.Fatal(err)
 	}

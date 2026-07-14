@@ -31,19 +31,18 @@
       <button class="step" type="button" data-step-target="verify-panel">
         <span class="step-number">3</span><span><b>번호 검증</b><small>발신 번호 확인</small></span>
       </button>
-      <button class="step" type="button" data-step-target="config-panel">
-        <span class="step-number">4</span><span><b>장치 설정</b><small>통화 회선 구성</small></span>
-      </button>
+      <!-- 회선 정보(어댑터/폰 MAC·HFP 포트·터널/kamailio IP·DID)는 앞 단계에서 전부 자동으로
+           확보된다 — 사용자가 입력할 값이 없으므로 별도 단계로 두지 않는다.
+           예외 상황의 수동 조정은 아래 "고급 설정" 에서 한다. -->
       <button class="step" type="button" data-step-target="service-panel">
-        <span class="step-number">5</span><span><b>서비스 시작</b><small>게이트웨이 운영</small></span>
+        <span class="step-number">4</span><span><b>서비스 시작</b><small>게이트웨이 운영</small></span>
       </button>
     </nav>
 
     <div class="workspace">
       <div class="canvas">
         <div id="operation-banner" class="operation-banner" hidden>
-          <div><b>게이트웨이가 정상 동작 중입니다</b><span>설정을 변경하면 저장 후 서비스 재시작이 필요할 수 있습니다.</span></div>
-          <button class="btn" type="button" data-step-target="config-panel">설정 수정</button>
+          <div><b>게이트웨이가 정상 동작 중입니다</b><span>회선 설정을 변경하려면 아래 고급 설정을 여세요. 저장 후 서비스 재시작이 필요합니다.</span></div>
         </div>
         <div id="change-banner" class="change-banner" hidden role="status">
           <span><b>저장하지 않은 변경사항이 있습니다</b> 이 화면을 벗어나기 전에 저장하세요.</span>
@@ -79,6 +78,7 @@
           </div>
           <div class="stage-toolbar"><span>검색된 장치</span><button class="btn btn-primary" id="btn-scan" type="button">장치 검색</button></div>
           <div id="bt-list" class="device-list"><div class="empty"><b>아직 검색하지 않았습니다</b><span>장치 검색을 누르면 주변 휴대폰이 여기에 표시됩니다.</span></div></div>
+          <span id="bt-msg" class="msg" role="status" aria-live="polite"></span>
         </section>
 
         <section class="stage" id="verify-panel" hidden>
@@ -101,35 +101,11 @@
           <div id="verify-blocked" class="restart-required" hidden><b id="verify-blocked-title">검증을 완료할 수 없습니다</b><span id="verify-blocked-copy"></span></div>
         </section>
 
-        <section class="stage" id="config-panel" hidden>
-          <div class="stage-copy">
-            <span class="eyebrow">4단계</span>
-            <h2>통화 회선 정보를 확인합니다</h2>
-            <p>연결·검증 과정에서 채워진 값을 확인하세요. 자동으로 입력되지 않은 항목만 직접 입력하면 됩니다.</p>
-          </div>
-          <div class="stage-toolbar config-toolbar"><span id="config-mode-copy">자동 입력된 값을 확인하고 저장하세요.</span><button class="btn" id="btn-edit-config" type="button" hidden>설정 수정</button></div>
-          <form id="prov-form" class="form form-config">
-            <div class="form-grid">
-              <label>블루투스 어댑터 MAC<input name="adapter_mac" placeholder="34:6F:24:…" /></label>
-              <label>휴대폰 MAC<input name="phone_mac" placeholder="페어링하면 자동 입력" /></label>
-              <label>HFP 포트<input name="hfp_port" type="number" placeholder="8" /></label>
-              <label>터널 IP<input name="tunnel_ip" placeholder="ClawOps 연결 시 자동 입력" /></label>
-              <label>Kamailio IP<input name="kamailio_ip" placeholder="ClawOps 연결 시 자동 입력" /></label>
-              <label>내 DID <span class="optional">검증 자동</span><input name="did" placeholder="번호 검증 시 자동 입력" readonly /></label>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" id="btn-save-config" type="submit">설정 저장</button>
-              <button class="btn" id="btn-cancel-config" type="button" hidden>취소</button>
-              <span id="prov-msg" class="msg" role="status" aria-live="polite"></span>
-            </div>
-          </form>
-        </section>
-
         <section class="stage" id="service-panel" hidden>
           <div class="stage-copy">
-            <span class="eyebrow">5단계</span>
+            <span class="eyebrow">4단계</span>
             <h2>Mobile Gateway를 시작합니다</h2>
-            <p>연결과 장치 설정이 완료되었습니다. 서비스를 시작하면 휴대폰의 셀룰러 회선을 ClawOps에서 사용할 수 있습니다.</p>
+            <p>연결과 번호 검증이 끝났습니다. 서비스를 시작하면 휴대폰의 셀룰러 회선을 ClawOps에서 사용할 수 있습니다.</p>
           </div>
           <div id="restart-required" class="restart-required" hidden><b>변경사항 적용을 위해 재시작이 필요합니다</b><span>현재 통화가 없다면 지금 재시작하세요.</span></div>
           <div class="service-actions">
@@ -143,7 +119,23 @@
         <div class="disclosures">
           <details>
             <summary><span><b>고급 설정</b><small>장치와 네트워크 설정을 직접 수정합니다</small></span></summary>
-            <p>장치 설정 단계에서 어댑터, HFP 포트, 터널 정보를 수정할 수 있습니다.</p>
+            <p class="field-help">아래 값은 연결·페어링·번호 검증에서 자동으로 채워집니다. 문제가 있을 때만 직접 수정하세요.</p>
+            <div class="stage-toolbar config-toolbar"><span id="config-mode-copy">자동으로 채워진 값입니다.</span><button class="btn" id="btn-edit-config" type="button" hidden>설정 수정</button></div>
+            <form id="prov-form" class="form form-config">
+              <div class="form-grid">
+                <label>블루투스 어댑터 MAC<input name="adapter_mac" placeholder="자동 감지" /></label>
+                <label>휴대폰 MAC<input name="phone_mac" placeholder="페어링 시 자동" /></label>
+                <label>HFP 포트<input name="hfp_port" type="number" placeholder="페어링 시 자동" /></label>
+                <label>터널 IP<input name="tunnel_ip" placeholder="ClawOps 연결 시 자동" /></label>
+                <label>Kamailio IP<input name="kamailio_ip" placeholder="ClawOps 연결 시 자동" /></label>
+                <label>내 DID <span class="optional">검증 자동</span><input name="did" placeholder="번호 검증 시 자동" readonly /></label>
+              </div>
+              <div class="form-actions">
+                <button class="btn btn-primary" id="btn-save-config" type="submit">설정 저장</button>
+                <button class="btn" id="btn-cancel-config" type="button" hidden>취소</button>
+                <span id="prov-msg" class="msg" role="status" aria-live="polite"></span>
+              </div>
+            </form>
           </details>
           <details>
             <summary><span><b>진단 로그</b><small>시스템 로그와 연결 상태를 확인합니다</small></span></summary>
