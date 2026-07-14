@@ -3,8 +3,10 @@
 
 [mobile-in]
 ; 셀룰러 착신: chan_mobile → ClawOps 트렁크(To=내 DID)로 흘림.
+; 타임아웃 60s: 트렁크가 무응답이면 채널을 무한 점유하지 않고 정리(셀룰러 발신자가
+; 끊기 전까지 chan_mobile 채널이 물려 있으면 다음 착신을 못 받는다).
 exten => s,1,NoOp(ClawOps mobile-in caller=${CALLERID(num)})
- same => n,Dial(PJSIP/{{MY_DID}}@clawops-trunk)
+ same => n,Dial(PJSIP/{{MY_DID}}@clawops-trunk,60)
  same => n,Hangup()
 
 [mobile-out]
