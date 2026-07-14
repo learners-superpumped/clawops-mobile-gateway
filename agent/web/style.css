@@ -24,7 +24,7 @@ button { color: inherit; }
 .dot { display: inline-block; flex: 0 0 auto; width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--idle); }
 .dot.ok { background: var(--ok); } .dot.warn { background: var(--warn); } .dot.bad { background: var(--bad); }
 main { max-width: 1400px; margin: 0 auto; padding: 34px 56px 56px; }
-.steps { height: 88px; display: grid; grid-template-columns: repeat(4, 1fr); border-bottom: 1px solid var(--line); }
+.steps { height: 88px; display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--line); }
 .step { position: relative; display: flex; align-items: center; gap: 14px; padding: 0 24px; border: 0; background: transparent; text-align: left; cursor: pointer; }
 .step:not(:last-child)::after { content: ""; position: absolute; right: -22px; top: 43px; width: 44px; height: 1px; background: #c7c9cf; }
 .step::before { content: ""; position: absolute; height: 4px; left: 0; right: 0; bottom: -2px; background: transparent; border-radius: 4px; }
@@ -124,7 +124,7 @@ details > p { margin: -4px 32px 20px; color: var(--muted); font-size: 12px; }
   .topbar { height: auto; padding: 18px 20px; align-items: flex-start; gap: 18px; }
   .health-strip { gap: 14px; flex-wrap: wrap; justify-content: flex-end; }
   main { padding: 20px; }
-  .steps { overflow-x: auto; grid-template-columns: repeat(4, minmax(190px, 1fr)); }
+  .steps { overflow-x: auto; grid-template-columns: repeat(5, minmax(190px, 1fr)); }
   .workspace { grid-template-columns: 1fr; }
   .canvas { border-right: 0; padding: 36px 24px; }
   .summary { border-top: 1px solid var(--line); }
@@ -138,7 +138,7 @@ details > p { margin: -4px 32px 20px; color: var(--muted); font-size: 12px; }
   .health-item b { font-size: 11px; }
   .health-item small { font-size: 10px; }
   main { padding: 0; }
-  .steps { height: 92px; grid-template-columns: repeat(4, minmax(0, 1fr)); overflow: visible; }
+  .steps { height: 92px; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: visible; }
   .step { min-width: 0; padding: 10px 3px 8px; gap: 5px; align-items: center; justify-content: center; flex-direction: column; text-align: center; }
   .step:not(:last-child)::after { top: 29px; right: -12px; width: 24px; }
   .step-number { width: 32px; height: 32px; font-size: 13px; }

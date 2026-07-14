@@ -29,7 +29,7 @@ func TestCallEnrollAPI_Success(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resp, status, err := callEnrollAPI(srv.URL, "tok123", "PUBKEY==", "01012345678")
+	resp, status, err := callEnrollAPI(srv.URL, "tok123", "PUBKEY==")
 	if err != nil || status != http.StatusCreated {
 		t.Fatalf("status=%d err=%v", status, err)
 	}
@@ -39,7 +39,7 @@ func TestCallEnrollAPI_Success(t *testing.T) {
 	if gotAuth != "Bearer tok123" {
 		t.Errorf("Authorization = %q", gotAuth)
 	}
-	if !strings.Contains(gotBody, `"wgPubkey":"PUBKEY=="`) || !strings.Contains(gotBody, `"msisdn":"01012345678"`) {
+	if !strings.Contains(gotBody, `"wgPubkey":"PUBKEY=="`) {
 		t.Errorf("요청 body = %s", gotBody)
 	}
 }
@@ -51,7 +51,7 @@ func TestCallEnrollAPI_TokenRejected(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, status, err := callEnrollAPI(srv.URL, "bad", "PUBKEY==", "")
+	_, status, err := callEnrollAPI(srv.URL, "bad", "PUBKEY==")
 	if err != nil {
 		t.Fatalf("err=%v (401 은 err 아니라 status 로 전달돼야)", err)
 	}
@@ -68,7 +68,7 @@ func TestCallEnrollAPI_MissingTunnelConfig(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	_, _, err := callEnrollAPI(srv.URL, "tok", "PUBKEY==", "")
+	_, _, err := callEnrollAPI(srv.URL, "tok", "PUBKEY==")
 	if err == nil {
 		t.Error("필수 터널 설정 누락인데 에러 없음")
 	}

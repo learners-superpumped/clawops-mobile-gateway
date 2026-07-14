@@ -120,7 +120,7 @@ func TestCallEnrollAPI_ParsesVerification(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resp, _, err := callEnrollAPI(srv.URL, "tok", "PUBKEY==", "")
+	resp, _, err := callEnrollAPI(srv.URL, "tok", "PUBKEY==")
 	if err != nil {
 		t.Fatal(err)
 	}

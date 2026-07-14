@@ -230,7 +230,7 @@ $("#enroll-form").addEventListener("submit", async (event) => {
   button.disabled = true;
   button.textContent = "연결 중…";
   setMessage("#enroll-msg", "보안 연결을 준비하고 있습니다.");
-  const { ok, body } = await api("/api/enroll", { method: "POST", body: JSON.stringify({ enroll_token: token, api_base: String(data.get("api_base") || "").trim(), msisdn: String(data.get("msisdn") || "").trim() }) });
+  const { ok, body } = await api("/api/enroll", { method: "POST", body: JSON.stringify({ enroll_token: token }) });
   button.disabled = false;
   button.textContent = "ClawOps에 연결";
   if (ok && body.wg_up) {

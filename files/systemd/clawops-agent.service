@@ -8,6 +8,9 @@ Type=exec
 # systemctl/bluetoothctl/hciconfig/wg 를 호출하므로 root 로 기동.
 User=root
 Environment=CLAWOPS_AGENT_ADDR=:8088
+# enroll 콜홈 대상. 이게 없으면 UI 가 "선택"이라 안내하는 서버 주소를 비웠을 때
+# enroll 이 400("api_base 가 필요합니다")으로 거절된다 — 토큰만 붙여넣으면 연결되는 게 정상 흐름.
+Environment=CLAWOPS_API_BASE=https://api.claw-ops.com
 ExecStart=/opt/clawops-gw/bin/clawops-agent
 Restart=on-failure
 RestartSec=3

@@ -37,11 +37,11 @@ var (
 func wgPrivKeyPath() string { return filepath.Join(wgDir, "box.key") }
 func wgConfPath() string    { return filepath.Join(wgDir, wgInterface+".conf") }
 
-// enrollRequest 는 UI(/api/enroll)가 보내는 입력.
+// enrollRequest 는 UI(/api/enroll)가 보내는 입력. UI 는 토큰만 보낸다 —
+// 번호는 3단계 번호 검증(MO SMS)이 확정하므로 여기서 받지 않는다.
 type enrollRequest struct {
 	EnrollToken string `json:"enroll_token"`
-	APIBase     string `json:"api_base"` // 선택: 미지정 시 CLAWOPS_API_BASE
-	MSISDN      string `json:"msisdn"`   // 선택: 이 박스 휴대폰 번호(표시/발신 caller-id)
+	APIBase     string `json:"api_base"` // 선택: 미지정 시 CLAWOPS_API_BASE(개발/스테이징용, UI 미노출)
 }
 
 // enrollResponse 는 ClawOps enroll API 응답. 내부 주소는 전부 여기서 온다.
@@ -101,7 +101,7 @@ func (s *Server) handleEnroll(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ② 콜홈 enroll.
-	resp, status, err := callEnrollAPI(apiBase, req.EnrollToken, pubkey, req.MSISDN)
+	resp, status, err := callEnrollAPI(apiBase, req.EnrollToken, pubkey)
 	if err != nil {
 		writeErr(w, http.StatusBadGateway, "enroll 호출 실패: "+err.Error())
 		return
@@ -196,8 +196,8 @@ func pollVerificationStatus(apiBase, nonce string) (verificationStatusResp, int,
 }
 
 // callEnrollAPI 는 ClawOps enroll 엔드포인트를 호출한다.
-func callEnrollAPI(apiBase, token, pubkey, msisdn string) (enrollResponse, int, error) {
-	body, _ := json.Marshal(map[string]string{"wgPubkey": pubkey, "msisdn": msisdn})
+func callEnrollAPI(apiBase, token, pubkey string) (enrollResponse, int, error) {
+	body, _ := json.Marshal(map[string]string{"wgPubkey": pubkey})
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBase+"/v1/mobile-gateways/enroll", bytes.NewReader(body))

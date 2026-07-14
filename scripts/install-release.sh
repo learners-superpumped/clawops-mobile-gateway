@@ -15,23 +15,36 @@ command -v curl >/dev/null 2>&1 || die "curl이 필요합니다."
 command -v dpkg >/dev/null 2>&1 || die "Ubuntu 또는 Debian에서만 설치할 수 있습니다."
 command -v sha256sum >/dev/null 2>&1 || die "sha256sum이 필요합니다."
 
+# 데비안 계열이면 통과 — 배포판 이름/버전이 아니라 아래의 glibc·아키텍처가 실제 제약이다.
+# ID_LIKE 까지 보므로 Mint/Pop!_OS/Raspbian 등 파생 배포판도 커버한다.
 if [ -r /etc/os-release ]; then
   # ⚠️ 서브셸에서 읽는다 — /etc/os-release 는 VERSION("22.04.5 LTS (Jammy Jellyfish)") 을
   #    정의하므로 현재 셸에서 source 하면 설치할 패키지 버전인 VERSION 을 덮어써
   #    TAG 가 "v22.04.5 LTS (Jammy Jellyfish)" 가 되고 다운로드 URL 이 깨진다.
   # shellcheck disable=SC1091
-  OS_ID=$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")
-  case "$OS_ID" in
-    ubuntu|debian) ;;
-    *) die "지원하지 않는 OS입니다: ${OS_ID:-unknown} (Ubuntu 22.04 또는 Debian 12 필요)" ;;
+  OS_INFO=$(. /etc/os-release 2>/dev/null; printf '%s %s' "${ID:-}" "${ID_LIKE:-}")
+  case " $OS_INFO " in
+    *" ubuntu "*|*" debian "*|*ubuntu*|*debian*) ;;
+    *) die "데비안 계열(Ubuntu/Debian)에서만 설치할 수 있습니다: ${OS_INFO% *}" ;;
   esac
 fi
 
 ARCH=$(dpkg --print-architecture)
 case "$ARCH" in
   amd64|arm64) ;;
-  *) die "지원하지 않는 아키텍처입니다: $ARCH" ;;
+  *) die "지원하지 않는 아키텍처입니다: $ARCH (amd64 또는 arm64 필요)" ;;
 esac
+
+# 실제 하한 = glibc. 패키지는 ubuntu:22.04(glibc 2.35)에서 빌드하므로 그 이상이면 배포판/버전을
+# 가리지 않고 동작한다(22.04·24.04 실기 검증). 이 검사가 없으면 glibc 가 낮은 환경(20.04=2.31)에서
+# 설치는 성공하고 asterisk 만 나중에 조용히 죽는다 — 여기서 명확히 막는다.
+MIN_GLIBC=2.35
+GLIBC=$(ldd --version 2>/dev/null | head -n 1 | grep -oE '[0-9]+\.[0-9]+$' || true)
+if [ -n "$GLIBC" ]; then
+  OLDEST=$(printf '%s\n%s\n' "$MIN_GLIBC" "$GLIBC" | sort -V | head -n 1)
+  [ "$OLDEST" = "$MIN_GLIBC" ] ||
+    die "glibc $MIN_GLIBC 이상이 필요합니다(현재 $GLIBC). Ubuntu 22.04+ 또는 Debian 12+ 를 사용하세요."
+fi
 
 if [ -n "${VERSION:-}" ]; then
   VERSION=${VERSION#v}
